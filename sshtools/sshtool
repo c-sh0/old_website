@@ -1,0 +1,207 @@
+#!/usr/bin/expect --
+#
+# Wed Mar 12 16:01:47 CST 2003
+#############################################################################################
+#
+#  Name: sshtool
+#-------------------------
+#
+#  I needed a script that would log into a number of hosts and run the same
+# command as root using sudo and 'ssh host <command>'. The old method i was
+# using was not very practical, since i had to type in the passwd twice for
+# each system (login and then sudo). When you have 30+ systems, this can be
+# a bit of a pain. I didn't want to use the ssh "~/.ssh/known_hosts" method
+# because i wasn't confortable using host based authentication and/or allowing
+# remote root logins with one global password. So using a normal user account
+# along with limited sudo gives an extra layer of security (not that this
+# method is "totaly secure").
+#
+# Usage: sshtool [option] <username>
+#
+# Option:    (one of the following)
+#      -u    execute command on hosts as a normal user.
+#      -r    execute command on hosts as root (uses sudo).
+#      -c    copy file(s) or directory to hosts.
+#      -h    this help
+#
+# <username> username of login account.
+#
+#
+# Note:
+#--------------------------
+#
+#  There is NO error checking as of yet. I may or may not add it in the future.
+# Until then make sure..
+#
+#    - All your remote hosts have sshd running
+#    - All your hosts are responding
+#    - You have sudo installed and set up correctly on each remote host
+#    - A valid user account and able to use sudo
+#    - You type the correct password
+#
+#
+# - Enjoy!
+#
+# - noconflic
+# nocon@darkflame.net
+# http://nocon.darkflame.net
+#
+#############################################################################################
+#
+#        Configuration Options
+#
+#################################
+# Set Your List of hosts here.  #
+# Don't forget the trailing '\' #
+# There is no limit.            #
+#################################
+#
+set hosts [list \
+            127.0.0.1 \
+            www.myhost.com \
+            4.20.73.22 \
+            10.10.10.20 \
+          ]
+
+###############################
+# Set the path to your local  #
+# scp/ssh commands.           #
+###############################
+#
+set sshcmd /bin/ssh
+set sshcpy /bin/scp
+
+
+#     End Configuration
+#
+#####################################################################################################
+
+#-----------------------------------#
+#          Functions                #
+#-----------------------------------#
+#
+
+proc usage {} {
+	send_user "Usage: sshtool \[option\] <username>\n\n"
+	send_user "Option:    (one of the following)\n"
+	send_user "     -u    execute command on hosts as a normal user.\n"
+	send_user "     -r    execute command on hosts as root (uses sudo).\n"
+	send_user "     -c    copy file(s) or directory to hosts.\n"
+	send_user "     -h    this help\n\n"
+        send_user "<username> username of login account.\n\n"
+	exit
+}
+
+proc getpass {} {
+       stty -echo
+       send_user "SSH Password: "
+       expect_user -re "(.*)\n"
+       set password(pass) $expect_out(1,string)
+       send_user "\n"
+       stty echo
+   return $password(pass)
+}
+
+proc getcommand {} {
+       send_user "Enter Command: "
+       expect_user -re "(.*)\n"
+       set command(cmd) $expect_out(1,string)
+   return $command(cmd)
+}
+
+proc getfiledir {} {
+        send_user "Local directory or file: "
+        expect_user -re "(.*)\n"
+        set dirfile(dfile) $expect_out(1,string)
+    return $dirfile(dfile)
+}
+
+
+proc doit {user pass cmmnd files su f} {
+global hosts sshcmd sshcpy sucmd
+
+  foreach host [set hosts] {
+     send_user "Connecting to: $host...\n"
+
+          if {$su == 1} {
+              spawn $sshcmd $user@$host $cmmnd
+              expect "password:"
+              send $pass\r
+              interact
+          }
+
+          if {$su == 2} {
+              spawn $sshcmd $user@$host $sucmd $cmmnd
+              expect "password:"
+              send $pass\r
+              expect "Password:"
+              send $pass\r
+              interact
+          }
+
+          if {$f == 1} {
+              spawn $sshcpy -r $files $user@$host:~/
+              expect "password:"
+              send $pass\r
+              interact
+          }
+
+    sleep 1
+  }
+}
+
+
+#-----------------------------------#
+#       Start our program           #
+#-----------------------------------#
+#
+
+if {[llength $argv]!=2} usage
+
+set sucmd sudo
+set user [lindex $argv 1]
+set su 0
+set files 0
+set f 0
+set cmmnd 0
+
+while {[llength $argv]>0} {
+   set flag [lindex $argv 0]
+   switch -- $flag \
+        "-u" {
+              send_user "Running command(s) on hosts as a normal user...\n"
+              set su 1
+              set pass [getpass]
+              set cmmnd [getcommand]
+              doit $user $pass $cmmnd $files $su $f
+              set argv [lrange $argv 2 end]
+
+      } "-r" {
+              send_user "Running command(s) on hosts as root...\n"
+              set su 2
+              set pass [getpass]
+              set cmmnd [getcommand]
+              doit $user $pass $cmmnd $files $su $f
+              set argv [lrange $argv 2 end]
+
+      } "-c" {
+              send_user "Sending file(s) to hosts...\n"
+              set f 1
+              set pass [getpass]
+              set files [getfiledir]
+              doit $user $pass $cmmnd $files $su $f
+              set argv [lrange $argv 2 end]
+
+      } "-h" {
+              usage
+              set argv [lrange $argv 2 end]
+
+      } default {
+	      usage
+
+      }
+}
+
+ send_user "SSHTool Finished.\n"
+
+exit

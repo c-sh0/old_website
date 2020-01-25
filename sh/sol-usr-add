@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+###############################################
+# For Solaris.
+#
+#  What this script does:
+#   
+#   - checks if user running the script is root
+#       * if the user is not root , exit and mail root with information on who ran the script
+#         and what username was triing to be added.
+#   - checks to see if the user (/etc/passwd) and home directory already exsists.
+#       * if so exit on error 1
+#   - if all checks pass, user is created with the credetals provided in the CONFIG section
+#       * password is for the user is read from stdin using the standard "passwd" command.
+#       * Account information is printed to stdout.
+#       * send notice mail to root of user creation and exit.
+#     
+# Written By
+#  - NoCoNFLiC 
+#
+################################################
+####################
+# Config if needed.
+####################
+#
+ID=`/usr/xpg4/bin/id -u`
+ADDCMD=/usr/sbin/useradd
+MKPASSWD=/usr/bin/passwd
+HOMEDIR=/export/home
+DFLTGRP=staff
+SKELDIR=/etc/skel
+DFLTSH=/usr/local/bin/tcsh
+#
+####################
+# End config.
+####################
+
+if [ $# -ne 2 ]; then
+    echo "[x] Usage: $0 <username> <real-life-name>"
+    echo "[x]              - where <real-life-name> must be in quotes."
+    echo "[x] Ex:"
+    echo "       $0 jdoe \"John doe\" "
+ exit 1
+fi
+
+  if [ $ID = 0 ]; then
+if [ "`grep $1 /etc/passwd | cut -d: -f1`" = ${1} ] || [ -d "${HOMEDIR}/${1}" ]; then
+     echo "[x] Error! Cannot create user."
+     echo "[x] Username $1 or directory:${HOMEDIR}/${1} may already be in use."
+     echo "[x] Choose another username."
+ exit 1
+fi
+ echo "[*] working...."
+
+ ${ADDCMD} -d ${HOMEDIR}/${1} -g ${DFLTGRP} -m -k ${SKELDIR} -s ${DFLTSH} -c "${2}" ${1} 
+
+ echo "[*] Username: ${1} added." 
+ echo
+ echo "[*] Enter a password for the New User.." 
+  
+   ${MKPASSWD} ${1}
+
+ echo "[*] done..."
+ echo "[*] New user account creation complete."
+ echo "[*] -< Account Info >-"
+ echo "       Real Name: ${2}"
+ echo "       Uid:  ${1}" 
+ echo "       Pass: *******" 
+ echo "       Host: `hostname`"
+ echo
+   exit 0
+else
+   echo "[x] YOU MUST BE ROOT!"
+   echo [`date`]: UID:`id` --wanted to create UID: ${1} on `hostname` | mail -s "[ ALERT ]: User Creation Attempt !" root
+ sleep 1
+exit 0
+fi
+   echo [`date`]: UID: ${1} --created on `hostname` | mail -s "[ NOTICE ]: New User Created" root
+exit 0

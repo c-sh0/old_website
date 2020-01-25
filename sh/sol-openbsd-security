@@ -1,0 +1,953 @@
+#!/bin/sh
+#
+###############################################################################################################
+#      												              #	
+#                               OpenBSD /etc/security Ported to Solaris                                       #
+#      												              #	
+#  The first one i ported, was really shitty, so i did it agian. This time it                                 # 
+# works ;-). I also added some addional checks that the original script, at the time                          #
+# of this writing, did not have.                                                                              #
+#												              #	
+#     Added:                                                                                                  #
+#            - A /etc/shadow permission check                                                                 #
+#            - Main script temporary file checks (help avoid symlink attakcks)                                #
+#            - Backup directory and files within perssimisions are checked                                    #
+#            - Some additional root owned file permissions are checked                                        #
+#            - Summerized output is mailed at each run, so you know when the script                           #
+#              is run or not (just in case someone disables it in cron)                                       #
+#            - syslogd is checked to make sure it is running                                                  # 
+#            - Added a log check for "su" usage (see comments at bottom)                                      #
+#            - Added some additional files when checking in user home directories                             #
+#            - Changed the way backups diff checks are done for /etc/changelist and suid files,               #
+#              Rather than having 2 backup files, there is just one wich is compared to                       # 
+#              the original.                                                                                  #
+#            - Added a search for core files and reports what they are from using file(1)                     #
+#                                                                                                             #
+#    Install:                                                                                                 # 
+#            1: Create a changelist file. This file contians full paths to files you want                     # 
+#               checked for any changes. Deafault is "/etc/changelist"                                        #
+#                                                                                                             #
+#              Example:                                                                                       #
+#                         # cat /etc/changelist                                                               #
+#                         /etc/hosts                                                                          #
+#                         /etc/passwd                                                                         #
+#                         /etc/hosts.allow                                                                    #
+#                         /usr/local/etc/sshd_config                                                          #
+#                         [.....]                                                                             #
+#                         #                                                                                   #
+#                                                                                                             #
+#             2: Change any of the configuration options to suit your needs                                   #
+# 											                      #
+#             3: Add an entry to the root's crontab file to have it run                                       #
+#                                                                                                             # 
+#                Example:                                                                                     # 
+#                         0 23 * * * /path/to/security.sh > /dev/null 2>&1                                    #
+#                                                                                                             #
+#                        NOTE: See commnets at the bottom for checking the su logfile and                     # 
+#                              runtimes. Since we are using the "date" and "egrep" to get                     #
+#                              data from the log files.                                                       #
+#                                                                                                             #
+#                                                                                                             #
+#   That's it! Enjoy. Qestions,comments,suggestions welcome.                                                  #
+#                                                                                                             #
+# - noconflic                       								              #
+#   06.07.02                                                                                                  #
+# nocon@darkflame.net                                                                                         #
+# http://nocon.darkflame.net                                                                                  #
+#                                                                                                             #
+###############################################################################################################
+umask 077
+PATH=/sbin:/bin:/usr/bin
+
+# Where to send output
+SYSADMIN=nocon@darkflame.net
+
+# List of files you want checked for changes 
+CHNGLST=/etc/changelist
+
+# group/passwd/shadow files
+PW=/etc/passwd
+SDW=/etc/shadow
+GRP=/etc/group
+
+# Temp run file directory
+TEMPD=/var/run
+
+# Mailbox spool dirrectory
+MAILDIR=/var/mail
+
+# Backup directory for file changes.
+BACKUPD=/data/backups
+
+# Needed system Commands 
+HOSTCMD=/usr/bin/hostname
+DATE=/usr/bin/date
+MAILX=/usr/bin/mailx
+# path to egrep
+GREP=/usr/bin/egrep
+
+# /usr/bin/su log files. (as it is on my systems)
+# Check /etc/syslog.conf
+SULOG=/var/adm/sulog
+MESSAGES=/var/adm/messages
+
+# To see command line output
+# 1 = enable
+# 0 = disable
+DEBUG=0
+
+
+####################################################################################
+#           You shouldn't have to change anything below this Line.                 #
+#           READ through the comments if you plan to make any changes.             #
+#################################################################################### 
+
+TMP2=${TEMPD}/._schk2.$$
+TMP=${TEMPD}/._schk.$$$$
+TMP3=${TEMPD}/._schk3.$$$$
+HOSTNAME=`${HOSTCMD}`
+
+###########################################
+#   Do temp file and directory checking   #
+###########################################
+ 
+if [ ! -d ${TEMPD} ]; then 
+echo " Temporary directory ${TEMPD} does not exsist. Check your configuration." \
+| ${MAILX} -s "${HOSTNAME} `${DATE}` ABORT! Security check configuration Error!" ${SYSADMIN}
+  exit 1
+fi 
+
+if [ ! -d ${BACKUPD} ]; then
+echo " Backup directory ${BACKUPD} does not exsist. Check your configuration." \
+| ${MAILX} -s "${HOSTNAME} `${DATE}` ABORT! Security check configuration Error!" ${SYSADMIN}
+  exit 1
+fi
+ 
+rm -f ${TMP} ${TMP2} ${TMP3}
+
+if [ -f ${TMP} ] || [ -f ${TMP2} ] || [ -f ${TMP3} ]; then
+echo " Temporary log file exist in ${TEMPD} directory that cannot be removed. This may be an attempt to spoof the \
+security check script!! \n\n Temporary filenames: ${TMP} ${TMP2} ${TMP3}" | \
+   ${MAILX} -s "${HOSTNAME} `${DATE}` POSSIBLE SYSTEM ATTACK !!" ${SYSADMIN}
+  exit 1
+fi
+
+##################
+#     Header     #
+##################
+
+cat << EOF >> ${TMP}
+
+             #-------------------------------------------#
+             #       Basic system security check         #
+             #-------------------------------------------#
+
+
+System Information:
+==============================
+
+Hostname: ${HOSTNAME}
+Date: `${DATE} "+%m/%d/%y %H:%M"` 
+Uptime: `uptime | awk '{print $3,$4}'`
+Last boot: `who -b | awk '{print $4,$5,$6}'`
+Load average: `uptime | awk '{print $7,$8,$11,$12,$13}'`
+
+==============================
+
+EOF
+
+################################################
+#    Check to make sure syslogd is running     #
+################################################
+
+if [ `/usr/bin/ps -feal | /usr/bin/grep -v grep | /usr/bin/grep -c syslogd` = 0 ]; then
+     echo "Syslog status: WARNING!! syslogd is NOT running.\n" >> ${TMP}
+else
+     echo "Syslog status: The syslog daemon is running.\n" >> ${TMP}
+fi
+
+######################################################
+## Check file permissions on directorys/files that   #
+## should only be owned and or writeable by root     #
+######################################################
+
+#--------------------------------------------------------# 
+#  Some files that should not be group/other writeable   #
+#--------------------------------------------------------#
+
+files="/etc/inetd.conf /etc/hosts /etc/password /etc/resolv.conf /etc/defaultrouter /etc/inet/inetd.conf \
+/etc/hosts.allow /etc/sudoers /etc/sshd_config /etc/ssh_config /etc/procmailrc /etc/shadow /etc/group \
+/etc/mail/aliases /etc/aliases /etc/vfstab /usr/local/etc/sudoers /usr/local/etc/Muttrc /usr/local/etc/ssh_congig \
+${CHNGLST}"
+
+for f in $files; do 
+   if [ -f ${f} ]; then
+        ls -al ${f} | \
+                 awk '{ 
+                        if($1 ~ /^-....w/) printf("file %s is group writeable\n",$9)
+                        if($1 ~ /^-.......w/) printf("file %s is other writeable\n",$9)
+                        if($3 != "root")  printf("file %s is owned by %s\n",$9,$3)
+                     }' >> ${TMP2}
+    fi
+done
+
+#------------------------#
+# Check $SDW file perms  #
+#------------------------#
+
+ls -l ${SDW} | awk '{
+                  if($1 != "-r--------") printf("WARNING!! Encrypted password file %s has incorrect permissions.\n"FILENAME)
+            }' >> ${TMP2} 
+
+#-----------------------------------------------------------------#
+#   Check $BACKUPD and and files within                           #
+# Everything in the $BACKUPD directory should NOT be owned/write   # 
+# by anyone other than root.                                      # 
+#-----------------------------------------------------------------#
+
+ls -ald ${BACKUPD} | \
+awk '{
+          if($1 ~ /^d....w/)  printf("Directory %s, is group writeable.\n",$9)
+          if($1 ~ /^d.......w/)  printf("Directory %s, is other writeable.\n",$9)
+          if($1 ~ /^d...r/) printf("Directory %s is group readable\n",$9)
+          if($1 ~ /^d......r/) printf("Directory %s is other readable\n",$9)
+
+     }' >> ${TMP2}
+
+ls -l ${BACKUPD} | sed 1d | \
+awk '{
+          if($1 ~ /^-....w/) printf("file %s is group writeable\n",$9)
+          if($1 ~ /^-.......w/) printf("file %s is other writeable\n",$9)
+          if($3 != "root")  printf("file %s is owned by %s\n",$9,$3)
+
+     }' >> ${TMP2}
+
+if [ -s ${TMP2} ]; then 
+    echo "\n[X] Checking file permissions on root owned files:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else 
+    echo "[*] Checking file permissions on root owned files: " >> ${TMP}
+fi
+
+
+###########################################
+# Check the password files and group file #
+###########################################
+
+#------------------------------------------#
+#      Check the passwd file               #
+#------------------------------------------#
+awk -F: '{
+           if(NF > 1 && $1 !~ /^[#+-]/ && $2=="")printf("No password: %s\n",$0)
+           if(NF != 7) printf("Line %d has wrong number of fields: %s\n",NR,$0)
+           if($0 ~ /^[ ]*$/) printf("Line %d is a blank line\n",NR)
+           if($1 == "") printf("Empty login: %s\n",$0)           
+           if($1 !~ /^[A-Za-z0-9][A-Za-z0-9_-]*$/) printf("Invalid login name: %s\n",$0)
+           if($3 == 0 && $1 != "root") printf("Login has uid 0: %s\n",$1)
+           if($3 < 0) printf("Negative user ID: %s\n",$0)
+           if($4 < 0) printf("Negative group ID: %s\n",$0)
+
+        #-----------------------------------#
+        # you might have a majordomo user.  #
+        #-----------------------------------#
+        # if(length($1) > 8 && $1 != "majordomo") printf("Login is more than 8 characters: %s\n",$1)
+        if(length($1) > 8) printf("Login is more than 8 characters: %s\n",$1)
+
+        }' ${PW} >> ${TMP2}
+
+awk -F: '{ print $1 }' ${PW} | sort | uniq -d > ${TMP3}
+if [ -s ${TMP3} ]; then
+      echo "Found duplicate user names:" >> ${TMP2}
+      cat ${TMP3} >> ${TMP2}
+      rm -f ${TMP3}
+fi
+
+if [ -s ${TMP2} ]; then
+    echo "\n[X] Checking ${PW} file syntax:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else 
+    echo "[*] Checking ${PW} file syntax: " >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+#---------------------------------------#
+#  Check the master passwd file         #
+#---------------------------------------#   
+awk -F: '{
+           if(NF > 1 && $1 !~ /^[#+-]/ && $2=="")printf("No password: %s\n",$0)
+           if(NF != 9) printf("Line %d has wrong number of fields: %s:CRYPTPASS:%s\n",NR,$1,$3)
+           if($0 ~ /^[ ]*$/) printf("Line %d is a blank line\n",NR)
+           if($1 == "") printf("Empty login: %s\n",$0)
+           if($1 !~ /^[A-Za-z0-9][A-Za-z0-9_-]*$/) printf("Invalid login name: %s\n",$0)
+
+        #-----------------------------------#
+        # you might have a majordomo user.  #
+        #-----------------------------------#
+        # if(length($1) > 8 && $1 != "majordomo") printf("Login is more than 8 characters: %s\n",$1)
+        if(length($1) > 8) printf("Login is more than 8 characters: %s\n",$1)
+       
+        }' ${SDW} >> ${TMP2} 
+
+awk -F: '{ print $1 }' ${SDW} | sort | uniq -d > ${TMP3}
+if [ -s ${TMP3} ]; then
+      echo "Found duplicate user names:" >> ${TMP2}
+      cat ${TMP3} >> ${TMP2}
+      rm -f ${TMP3}
+fi
+
+if [ -s ${TMP2} ]; then
+    echo "\n[X] Checking ${SDW} file syntax:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else 
+    echo "[*] Checking ${SDW} file syntax: " >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+
+#---------------------------------------#
+#      Check the group file             #
+#---------------------------------------#
+awk -F: '{
+            if(NF != 4) printf("Line %d has wrong number of fields: %s\n",NR,$0)
+            if($0 ~ /^[ ]*$/) printf("Line %d is a blank line\n",NR)
+            if($1 == "") printf("Empty group name %s\n",$0)
+            if($1 !~ /^[A-Za-z0-9][A-Za-z0-9_-]*$/) printf("Invalid group name: %s\n",$0)
+            if($3 == 0 && $1 != "root") printf("Group name is GID\(0\): %s\n",$1)
+            if($3 < 0) printf("Negative group ID: %s\n",$0)
+
+        #-----------------------------------#
+        # you might have a majordomo user.  #
+        #-----------------------------------#
+        # if(length($1) > 8 && $1 != "majordomo") printf("Group name is more than 8 characters: %s\n",$1)
+        if(length($1) > 8) printf("Group name is more than 8 characters: %s\n",$1)
+
+        }' ${GRP} >> ${TMP2}
+
+awk -F: '{ print $1 }' ${GRP} | sort | uniq -d > ${TMP3}
+if [ -s ${TMP3} ]; then
+      echo "Found duplicate user names:" >> ${TMP2}
+      cat ${TMP3} >> ${TMP2}
+      rm -f ${TMP3}
+fi
+
+if [ -s ${TMP2} ]; then
+    echo "\n[X] Checking ${GRP} file syntax:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else
+    echo "[*] Checking ${GRP} file syntax: " >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+
+#################################################
+#  Check global and root shell start-up files   #
+#################################################
+
+files=".profile .kshrc .tcshrc .cshrc .login .bashrc /etc/profile /etc/login \
+/etc/.login /etc/tcshrc /etc/csh.cshrc /etc/csh.login /etc/ksh.kshrc \
+/root/.profile /root/.kshrc /root/.tcshrc /root/.cshrc /root/.login /root/.bashrc"
+
+for i in ${files}; do
+umaskset=0
+
+ if [ -f ${i} ]; then
+   if ${GREP} "umask" ${i} | ${GREP} -v "#" > /dev/null; then
+      umaskset=1
+      ${GREP} "umask" ${i} | ${GREP} -v "#" | \
+                                 awk '{
+                                        if($2 % 100 < 20) printf("umask is is group writeable: %s\n",$2)
+                                        if($2 % 10 < 2) printf("umask is other writeable: %s\n",$2)
+
+                                      }' >> ${TMP2}
+   elif [ ${umaskset} -eq 0 ]; then
+      echo "Umask is not set in ${i}" >> ${TMP2}
+   fi
+ fi
+done
+
+if [ -s ${TMP2} ]; then 
+    echo "\n[X] Checking root and global shell start-up files:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else 
+    echo "[*] Checking root and global shell start-up files:" >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+#-----------------------------------------#
+#      PATH Checks for tcsh/csh           #
+#-----------------------------------------#
+
+files="/etc/csh.cshrc /etc/tcshrc /etc/csh.login /etc/.login /.cshrc /.tcshrc /.login \
+/root/.cshrc /root/.tcshrc /root/.login /root/cshrc"
+
+for i in $files ; do
+    if [ -f ${i} ]; then
+
+            SAVE_PATH=$PATH
+            unset $PATH
+
+/bin/csh -f -s << end-of-csh > /dev/null 2>&1
+source $i
+if (\$?path) then
+    /bin/ls -ldg \$path > ${TMP2}
+else
+     cat /dev/null > ${TMP2}
+endif
+end-of-csh
+              PATH=$SAVE_PATH
+
+            if [ -s ${TMP2} ]; then
+                    awk '{
+                           if($8 ~ /^\.$/) printf("The root path includes .\n")
+                           if($1 ~ /^d....w/) printf("%s is group writeable.\n",$8)
+                           if($1 ~ /^d.......w/) printf("%s is is other writeable.\n",$8)
+
+                        }' ${TMP2} >> ${TMP3}
+            fi
+               rm -f ${TMP2}
+       fi
+done
+
+#------------------------------------------#
+#  PATH checks for bash/ksh shells         #
+#------------------------------------------#
+files="/etc/ksh.kshrc /etc/profile /.profile /.kshrc /root/.kshrc /root/.profile"
+
+for i in $files ; do
+   if [ -f ${i} ]; then
+
+       SAVE_PATH=$PATH
+       SAVE_ENV=$ENV
+       unset $PATH $ENV
+
+
+/bin/sh << end-of-sh > /dev/null 2>&1
+. ${i}
+if [ X"\$PATH" != "X" ]; then
+      list=\`echo \$PATH | /usr/bin/sed -e 's/:/ /g'\`
+      /bin/ls -ldg \$list > ${TMP2}
+else
+    cat /dev/null > ${TMP2}
+fi
+end-of-sh
+
+       PATH=$SAVE_PATH
+       ENV=$SAVE_ENV
+
+            if [ -s ${TMP2} ]; then
+                    awk '{
+                            if($8 ~ /^\.$/) printf("The root path includes .\n")
+                            if($1 ~ /^d....w/) printf("%s is group writeable.\n",$8)
+                            if($1 ~ /^d.......w/) printf("%s is is other writeable.\n",$8)
+
+                         }' ${TMP2} >> ${TMP3}
+            fi
+        rm -f ${TMP2}
+    fi
+done
+
+if [ -s ${TMP3} ]; then
+    echo "\n[X] Checking root path values in shell startup files:" >> ${TMP}
+    cat ${TMP3} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP3}
+else
+    echo "[*] Checking root path values in shell startup files:" >> ${TMP}
+    rm -f ${TMP3}
+fi
+
+
+#######################################################
+#       Check /etc/ftpusers and /etc/mail/aliases     #
+#######################################################
+
+#----------------------------------------------------#
+# root and uucp should both be in /etc/ftpusers      #
+#----------------------------------------------------#
+
+if [ -f /etc/ftpusers ]; then 
+  ftpusers="root uucp nuucp"
+     for i in $ftpusrs; do
+
+           if ${GREP} "^$i" /etc/ftpusers > /dev/null; then
+               :
+           else
+               echo "${i} not listed in /etc/ftpusers file." >> ${TMP2}
+           fi
+      done 
+else 
+     echo "Missing /etc/ftpusers file." >> ${TMP2}
+fi
+
+if [ -s ${TMP2} ]; then
+    echo "\n[X] Checking /etc/ftpusers:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else
+    echo "[*] Checking /etc/ftpusers:" >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+
+#---------------------------------------------------------#
+# Uudecode should not be in the /etc/mail/aliases file    #
+#---------------------------------------------------------#
+
+users="uudecode decode"          
+if [ -f /etc/mail/aliases ]; then 
+    for i in $users; do
+        if ${GREP} "^$i" /etc/mail/aliases > /dev/null ; then
+            echo "\nThere is an entry for $i in the /etc/mail/aliases file." >> ${TMP2}
+        fi
+    done
+fi 
+
+if [ -f /etc/aliases ]; then 
+    for i in $users; do
+       if ${GREP} "^$i" /etc/aliases > /dev/null ; then
+         echo "\nThere is an entry for $i in the /etc/aliases file." >> ${TMP2}
+       fi
+    done
+fi
+
+if [ -s ${TMP2} ]; then
+    echo "\n[X] Checking mail aliases files:" >> ${TMP}
+    cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+    rm -f ${TMP2}
+else
+    echo "[*] Checking mail aliases files:" >> ${TMP}
+    rm -f ${TMP2}
+fi
+
+
+################################################
+#    Checks for r services config files        #
+################################################
+
+#---------------------------------------------#
+# Files that should not have + signs.         #
+#---------------------------------------------#
+
+files="/etc/hosts.equiv /etc/shosts.equiv /etc/hosts.lpd"
+   for i in $files; do
+       if [ -f ${i} ]; then 
+             awk '{if($0 ~ /^\+.*$/) printf("Plus sign found in  %s file.\n",FILENAME)}' ${i} >> ${TMP2}
+              
+              if [ -s ${TMP2} ]; then
+                     echo "\n[X] Checking ${i} for potental security problems:" >> ${TMP}
+                     cat ${TMP2} >> ${TMP}
+                     echo >> ${TMP}
+                     rm -f ${TMP2}
+              else
+                     echo "[*] Checking ${i} for potental security problems:" >> ${TMP}
+                     rm -f ${TMP2}
+              fi
+       fi 
+   done 
+
+
+#-----------------------------------------------------------------#
+# Check for all users with .rhosts/.shosts files.  Only root      #
+# should have .rhosts/.shosts files ?  Also, .rhosts/.shosts      #
+# files should not have plus signs.                               #
+# Root owned .rhosts/.shosts files are ok ?                       #
+#-----------------------------------------------------------------#
+
+awk -F: '$1 !~ /^[+-]/ \
+
+#-------------------------------------------------------------------------------------------#
+# Uncomment the next line if you do not want to check root,sys,daemon,ftp,smmsp             #
+# and any user with uid less than 100 for .rhost/.shost files. I dont ever use any of the   #
+# rservices so i check every user. its up to you.                                           #
+#-------------------------------------------------------------------------------------------#
+#&& $1 != "root" && $1 != "sys" && $1 != "daemon" && $1 != "smmsp" && ($3 < 100 || $1 == "ftp" || $1 == "uucp") \
+
+ {print $1 " " $6}' ${PW} | \
+   while read uid homedir; do
+      for i in .rhosts .shosts; do
+          if [ -s ${homedir}$i ]; then
+                 rhost=`ls -ldg ${homedir}$i`
+                 echo "Found ${i} in home directory of user ${uid}." >> ${TMP2}
+                 echo "${uid}: ${rhost}" >> ${TMP2}
+                 awk '{if($0 ~ /^\+.*$/) printf("Plus sign found in %s file: %s\n",FILENAME,$0)}' ${homedir}$i >> ${TMP2}
+                 echo  >> ${TMP2}
+          fi
+      done
+    done
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking for users with active .rhosts/.shosts files:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking for users with active .rhosts/.shosts files:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+########################################################
+#     Check home directories and files within          #
+########################################################
+
+#----------------------------------------------------------------------------#
+# Check home directories.  Directories should not be owned by someone else   #
+# or writeable.                                                              #
+#----------------------------------------------------------------------------#
+
+awk -F: '/^[^+-]/ { print $1 " " $6 }' ${PW} | \
+while read uid homedir; do
+  if [ -d ${homedir} ]; then
+     ls -ald ${homedir} | \
+              awk '{
+                     if($1 ~ /^d....w/)  printf("Home directory %s, is group writeable.\n",$9)
+                     if($1 ~ /^d.......w/)  printf("Home directory %s, is other writeable.\n",$9)
+
+                   }' >> ${TMP2}
+
+     echo "${uid} `ls -ald ${homedir}`" | \
+     awk '{if($1 != $4 && $4 != "root") printf("user %s home directory is owned by %s\n",$1,$4)}' >> ${TMP2}
+  fi
+done
+
+#---------------------------------------------------------------#
+# Files that should not be owned by someone else or readable.   #
+# or writeable.                                                 #
+#---------------------------------------------------------------#
+
+files=".Xauthority .pinerc .forward .muttrc .procmailrc .netrc .rhosts .shosts .pgp/secring.pgp \
+.pgp/secring.skr .pgp/pgp.cfg .ssh/identity .ssh/random_seed"
+
+awk -F: '/^[^+-]/ { print $1 " " $6 }' ${PW} | \
+while read uid homedir; do
+   for f in $files; do
+      file=${homedir}/${f}
+        if [ -f ${file} ]; then
+          ls -al ${file} | \
+                awk '{
+                        if($1 ~ /^-...r/) printf("file %s is group readable\n",$9)
+                        if($1 ~ /^-......r/) printf("file %s is other readable\n",$9)
+                        if($1 ~ /^-....w/) printf("file %s is group writeable\n",$9)
+                        if($1 ~ /^-.......w/) printf("file %s is other writeable\n",$9)
+
+                    }' >> ${TMP2}
+
+          echo "${uid} ${file} `ls -al ${file}`" | \
+
+        #-----------------------------------------------#
+        # Uncomment ONE of the following for....        #
+        # You may want to ignore any root owned files   #
+        # In home directories. (sys,bin,nobody,etc..)   #
+        #-----------------------------------------------#
+      # awk '{if($1 != $5 && $5 != "root") printf("user %s %s file is owned by %s\n",$1,$2,$5)}' >> ${TMP2}
+        #-----------------------------------------------#
+        # Or you may want to ignore system accounts     #
+        # (sys,bin,nobody,etc..)                        #
+        #-----------------------------------------------#
+      # awk '{
+      #        if($1 != $5 && $1 != "nobody" && $1 != "sys" && $1 != "nobody4" && $1 != "majordomo" \
+      #        && $1 != "noaccess" && $1 != "daemon" && $1 != "smmsp") \ 
+      #        printf("user %s %s file is owned by %s\n",$1,$2,$5)
+      #      }' >> ${TMP2}
+        #------------------------------------------------#
+        #    I check everyone                            #
+        #------------------------------------------------#
+      awk '{if($1 != $5) printf("user %s %s file is owned by %s\n",$1,$2,$5)}' >> ${TMP2}
+
+        fi
+   done
+done
+
+#---------------------------------------------------------------#
+# Files that should not be owned by someone else or writeable.  #
+#---------------------------------------------------------------#
+
+files=".pinerc .bashrc .bash_profile .bash_login .bash_logout .cshrc \
+      .emacs .exrc .forward .fvwmrc .inputrc .klogin .kshrc .login \
+      .logout .nexrc .profile .screenrc .ssh .ssh/config \
+      .ssh/authorized_keys .ssh/environment .ssh/known_hosts .ssh/known_hosts2 .ssh/rc \
+      .tcshrc .twmrc .xsession .xinitrc .Xdefaults .Xauthority \
+      .muttrc .procmailrc .netrc .rhosts .shosts .pgp/secring.pgp \
+      .pgp/secring.skr .pgp/pgp.cfg .ssh/identity .ssh/random_seed"
+
+awk -F: '/^[^+-]/ { print $1 " " $6 }' ${PW} | \
+while read uid homedir; do
+   for f in $files; do
+      file=${homedir}/${f}
+         if [ -f ${file} ]; then
+             ls -al ${file} | \
+                awk '{
+                        if($1 ~ /^-....w/) printf("file %s is group writeable\n",$9)
+                        if($1 ~ /^-.......w/) printf("file %s is other writeable\n",$9)
+              
+                     }' >> ${TMP2}
+
+             echo "${uid} ${file} `ls -al ${file}`" | \
+             awk '{if($1 != $5 && $5 != "root") printf("user %s %s file is owned by %s\n",$1,$2,$5)}' >> ${TMP2}
+          fi
+   done
+done
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking user home directories:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+    echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking user home directories:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+#############################################
+#       Some file system checks             #
+#############################################
+
+#-------------------------------------------------#
+# File systems should not be globally exported.   #
+# File: /etc/dfs/dfstab                           #
+#-------------------------------------------------#
+
+if [ -s /etc/dfs/dfstab ]; then
+  awk '{
+   if (($1 ~ /^#/) || ($1 ~ /^$/)) next;
+
+   if($0 !~ /ro.*$/ && $0 !~ /ro=.*$/ && $0 !~ /rw.*$/ && $0 !~ /rw=.*$/) printf("%s is a global read/write export\n",$0)
+   if($0 ~ /ro .*$/ || $0 ~ /ro,.*$/ && $0 !~ /ro=.*$/ ) printf("%s is a global read only export\n",$0) 
+   if($0 ~ /rw .*$/ || $0 ~ /rw,.*$/ && $0 !~ /rw=.*$/ ) printf("%s is a global read/write export\n",$0) 
+       }' /etc/dfs/dfstab >> ${TMP2}
+else 
+    echo "Missing /etc/dfs/dfstab file." >> ${TMP2}
+fi
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking for global exports:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+       echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking for global exports:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+#-----------------------------------#
+# Check mailbox ownership and       #
+# permissions.                      #
+#-----------------------------------#
+
+if [ -d ${MAILDIR} ]; then 
+ls -l ${MAILDIR} | sed 1d | \
+awk '{
+        if(($9 == ":saved") || ($9 == "lost+found")) next;
+
+        if($1 ~ /^-....w/) printf("mailbox for %s is group writeable\n",$9)
+        if($1 ~ /^-.......w/) printf("mailbox for %s is other writeable\n",$9)
+        if($1 ~ /^-...r/) printf("mailbox for %s is group readable\n",$9)
+        if($1 ~ /^-......r/) printf("mailbox for %s is other readable\n",$9)
+        if($3 != $9) printf("mailbox for %s is owned by %s\n",$9,$3)
+
+     }' >> ${TMP2}
+else 
+     echo "Missing ${MAILDIR} directory." >> ${TMP2}
+fi
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking mailbox ownerships in ${MAILDIR}:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking mailbox ownerships in ${MAILDIR}:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+#------------------------------------------#
+# Look for any core files on the system    #
+# and report. Possible BOF attempts ?      #
+#------------------------------------------#
+
+#-----------------------------------------#
+#  Look on NFS mounts ??                  #
+# The commented out find keeps the search #
+# to the local file system and does not   #
+# search on NFS mount points              #
+#-----------------------------------------#
+# find / ! -local -prune -o -type f -a ! -fstype proc -name core -exec file {} \; >> ${TMP2}
+find / -type f -a ! -fstype proc -name core -exec file {} \; >> ${TMP2}
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking for any core files on the system:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking for any core files on the system:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+##############################################
+#      Check files for any changes           #
+##############################################
+
+#------------------------------------#
+# Check for suid/guid file changes   #
+#------------------------------------#
+
+if [ -f ${BACKUPD}/suidlist.backup ]; then
+#-----------------------------------------#
+#  Look on NFS mounts ??                  #
+# The commented out find keeps the search #
+# to the local file system and does not   #
+# search on NFS mount points              #
+# If you change this one make sure you    #
+# change the next one for consistancey    #
+#-----------------------------------------#
+# find / ! -local -prune -o -type f -a ! -fstype proc \( -perm -u+s -o -perm -g+s \) -print | xargs ls -ald | sort +9 > ${BACKUPD}/suidlist
+find / -type f -a ! -fstype proc \( -perm -u+s -o -perm -g+s \) -print | xargs ls -ald | sort +9 > ${BACKUPD}/suidlist
+
+    sort +9 ${BACKUPD}/suidlist ${BACKUPD}/suidlist.backup | sed -e 's/[  ][      ]*/ /g' | uniq -u >> ${TMP2}
+    cp -p ${BACKUPD}/suidlist ${BACKUPD}/suidlist.backup
+    rm -f ${BACKUPD}/suidlist
+    chgrp root ${BACKUPD}/suidlist.backup
+else
+    echo "${BACKUPD}/suidlist.backup file is missing, creating suid/guid list:" >> ${TMP2}
+#-----------------------------------------#
+#  Look on NFS mounts ??                  #
+# The commented out find keeps the search #
+# to the local file system and does not   #
+# search on NFS mount points              #
+#-----------------------------------------#
+# find / ! -local -prune -o -type f -a ! -fstype proc \( -perm -u+s -o -perm -g+s \) -print | xargs ls -ald | sort +9 > ${BACKUPD}/suidlist
+find / -type f -a ! -fstype proc \( -perm -u+s -o -perm -g+s \) -print | xargs ls -ald | sort +9 > ${BACKUPD}/suidlist
+    sort +9 ${BACKUPD}/suidlist | sed -e 's/[  ][      ]*/ /g' | uniq -u >> ${TMP2} 
+    cp -p ${BACKUPD}/suidlist ${BACKUPD}/suidlist.backup
+    rm -f ${BACKUPD}/suidlist
+    chgrp root ${BACKUPD}/suidlist.backup
+fi
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking for suid/guid changes:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking for suid/guid changes:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+#------------------------------------------------------------------------#
+# List of files that get backed up and checked for any modifications.    #
+#------------------------------------------------------------------------#
+
+if [ -s ${CHNGLST} ] ; then
+   for file in `egrep -v "^#|${SDW}" ${CHNGLST}`; do
+           NAME=`echo $file | sed 's/^\///;s/\//_/g'`
+           BACKUP=${NAME}.backup
+
+      if [ -s ${BACKUPD}/${BACKUP} ] && [ -s ${file} ]; then
+         diff ${BACKUPD}/${BACKUP} ${file} > ${TMP3}
+
+           if [ -s ${TMP3} ]; then
+                 echo "------------------------\nFile: ${file}\ndiffs: (OLD < > NEW)\n------------------------" >> ${TMP2}
+                 cat ${TMP3} >> ${TMP2}
+                 cp -p ${file} ${BACKUPD}/${BACKUP}
+                 chown root ${BACKUPD}/${BACKUP}
+                 chgrp root ${BACKUPD}/${BACKUP}
+            fi
+       elif [ -s ${file} ]; then
+          cp -p ${file} ${BACKUPD}/${BACKUP}
+          chown root ${BACKUPD}/${BACKUP}
+          chgrp root ${BACKUPD}/${BACKUP}
+       fi
+   done
+ rm -f ${TMP3}
+else 
+       echo "${CHNGLST}: Missing or empty file." >> ${TMP2}
+fi
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking ${CHNGLST} files for any changes:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking ${CHNGLST} files for any changes:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+###########################################
+#   Add/Run any addional checks/scripts   #
+###########################################
+
+#---------------------------------------------------------#
+#        README for checking log files.                   #
+#---------------------------------------------------------#
+#  Logfiles, Checks for certain logfile events.           #
+# check your /etc/syslog.conf as your logging may         #
+# vary. Anything here relys on the current DATE and       #
+# egrep. This is important to note because if you         #
+# run this script from cron at midight then the DATE      #
+# will be for that next day.                              #
+#---------------------------------------------------------#
+
+######################################
+#    Check to see who is using su    #
+######################################
+
+if [ -f ${SULOG} ]; then 
+    egrep "`date +%m/%d`" ${SULOG} | awk '{if($4 ~ /\-.*$/ || $4 ~ /\+.*$/ || $0 ~ /console.*$/) printf("%s\n",$0)}' >> ${TMP2}
+elif [ -f ${MESSAGES} ]; then
+    awk '{if($0 ~ /su:.*$/ && $0 ~ /failed.*$/) printf("%s\n",$0)}' ${MESSAGES} >> ${TMP2}
+else 
+   echo "Missing ${SULOG} and/or ${MESSAGES} files" >> ${TMP2}
+fi
+
+if [ -s ${TMP2} ]; then
+      echo "\n[X] Checking su usage:" >> ${TMP}
+      cat ${TMP2} >> ${TMP}
+      echo >> ${TMP}
+      rm -f ${TMP2}
+else
+      echo "[*] Checking su usage:" >> ${TMP}
+      rm -f ${TMP2}
+fi
+
+
+#####################
+#  Mail output      #
+#####################
+echo "\nBasic System security check complete.\n" >> ${TMP}
+cat ${TMP} | ${MAILX} -s "${HOSTNAME} `${DATE}` System Security check." ${SYSADMIN}
+
+#----------------#
+#  Debugging     #
+#----------------#
+if [ ${DEBUG} -eq 1 ]; then 
+   cat ${TMP}
+fi 
+
+#################
+#    Clean up   #
+#################
+
+rm -f ${TMP} ${TMP2} ${TMP3}
+chown -R root ${BACKUPD}
+chgrp root ${BACKUPD}
+chmod 700 ${BACKUPD}
+
+exit 0

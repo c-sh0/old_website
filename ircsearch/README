@@ -1,0 +1,121 @@
+#----------------------------------------------------------------------#
+			    README
+
+                     ircsearch v0.1 beta
+
+Contact:
+nocon@darkflame.net
+http://nocon.darkflame.net
+
+#----------------------------------------------------------------------#
+
+Background
+-----------
+
+  Why did i write this ? Two reasons, First i am relatively new to C and
+wanted to really code something worth it's grain of salt. The second reason
+is a bit of a story so here goes.
+
+    A little while ago an buffer overrun was discovered in the AOL Instant
+Messenger followed by an exploit. https://www.securityfocus.com/bid/3769
+It seemed that only windows platforms were vulnerable, as it turns out this
+was not true. At least in my case one was able to perform a DoS attack regardless
+of O/S. From what i understand it was a bug found within the protocol not
+the client. About this time i was IM'd by an anonymous user by the name
+of "r00tg04t". I was asked "What kind of aim client do you use ?" umm, yeah.
+Anyway, After about some mins of mudd slinging, he's calling me names in all his/her
+"L33t Speak" glory, He was able to DoS my AIM client. I thought to myself,
+"Hahaha, gotta love it." whatever. Unfortunately i was at work and
+i couldn't log back on AIM for like 2 hrs. I was like woah!. Well shit, i
+guess this WAS a problem was in the AOL IM protocol. Oh well. So i decided i
+wanted to see if i could track this dude down for a little bit of fun.
+( yeah, yeah i get some free time now and then ) but how ?  Just off an
+AIM name ? yeah right.
+
+  So, just for kicks i stuck his name in google, i wasn't thinking i would get
+any results back, but i figured what the hell, much to my amazement four links
+show up with an e-mail address and a website. Laughing to myself i thought, not soo
+bright are we. I checked his web site etc.. turns out this person likes to IRC
+quite a bit. ( assuming of course it is the same person ) ok, cool. I began logging
+into a bunch of IRC networks ( i don't IRC much at all ) triing to look for the
+nickname "r00tg04t". Chances are, if he is using it on AIM and as an e-mail, I'm
+sure this person will use it on IRC too, as it looks like their triing to make a
+name for him/her self. well after about 30mins of checking IRC servers with like
+100 to go, doing by hand was pointless, and chances are that "r00tg04t" wouldn't
+be on the same server i was looking on at the time. So i thought AH-HA!, i wonder
+if there is a application or script that will search all the IRC networks for a
+particular nickname. ?? well i looked and asked around etc.. , and well surprisingly
+there is not. ( at least none that i could find )
+
+So i wrote my own. :)
+
+
+Details
+-----------
+
+    It's kinda cheesy but what this program does is take a list of IRC servers and
+corresponding port number separated with a colon ":", logs into each server and does
+a dns, ison, whois, who, userhost and whowas ( see RFC1459 ) on a specified nick then saves the
+results to a log file.
+
+Files
+-----------
+
+     README       :- This file you are reading
+     Makefile     :- Makefile to compile ircsearch
+     ircsearch.c  :- ircsearch source
+     server.list  :- Sample IRC server list file
+
+Compile
+------------
+
+     Simply type "make" in the directory you put these files in.
+
+       - Compiled and tested on
+            RH Linux
+            OpenBSD
+
+Usage
+------------
+
+ usage: [yournick] [nick-to-search] [ircserver.file]
+
+        yournick        : Nickname to use when logging into an IRC server
+        nick-to-search  : Nickname you wish to search for
+        ircserver.file  : Filename to read server list from
+
+        output: written to "ircsearch.log"
+
+ example:
+        ./ircsearch Mynam3 H0tLove ./server.list
+
+
+TODO
+-------------
+
+     - Work on login options
+     - More detailed output
+     - More error checking
+     - Make it run faster
+     - Connection timeouts
+     - Anything else i can't think of right now
+
+
+Acknowledgments
+---------------------
+
+Special Thanks to:
+r00tg04t
+AIM: r00tg04t (alias: "Jonus R me" )
+r00tg04t@mail.com
+http://op4l.cjb.net/
+http://www.geocities.com/orbirc/
+
+   I had fun and learned a lot coding this. ;-P
+
+
+PS:
+
+    MY spelling sucks :)
+
+EOF

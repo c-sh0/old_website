@@ -1,0 +1,72 @@
+My Lame Youtube Downloader/Converter for Windows
+-----------------------------------------------------
+
+   Quick windows util that will download youtube video's. uses "wget". All the utils are free and
+open to the public. None of this is new or ground breaking. Just decided to whip one up for
+windows.
+
+
+- nocon
+http://nocon.darkflame.net/
+
+
+
+Files:
+----------
+lib             -  Required .dll's for things in bin
+bin             -  Usefull (or not) Utils (wget,sed,awk,grep,strings,mplayer,ffmpeg,etc..)
+get_video.bat   -  Downloads youtube flash video files (.flv)
+convert_it.bat  -  Converts flash files to .mpg or .avi format (uses ffmpeg)
+
+
+Usage:
+----------
+
+ get_video "youtube_url" <outfile>
+
+ex: get_video "http://www.youtube.com/watch?v=LKJghhuyrw" myfile
+
+  Will download the video and save it as "myfile.flv"
+
+If you want to convert it to mpg or AVI fomat, you can use convert.bat It uses ffmpeg.exe.
+It uses basic options, so you might want to play with it a bit if your not happy with the
+converted video quality. Also in the bin directory is mplayer and mencoder if you prefer to
+convert using that util.
+
+Syntax: convert_it [/mpg|/avi] myfile.flv outfile
+
+  will save to "outfile.avi" or "outfile.mpg"
+
+Also, if you look in the get_video.bat there is the ol, "fmt=18" (format 18) for d/l high quality mp4 version's
+of the video's and "fmt=6" for High Quality flash version. These are new features for youtube, so not all videos will
+have this format.
+
+
+
+REF/URLS:
+------------
+
+Cygwin
+http://www.cygwin.com/
+
+FFmpeg
+http://arrozcru.no-ip.org/ffmpeg_builds/
+
+FLV Player
+http://www.martijndevisser.com/blog/flv-player/
+
+Mozilla Youtube d/l add-on
+https://addons.mozilla.org/en-US/firefox/addon/3590
+
+Bash scripts using wget to save youtube vids
+http://bashscripts.org/viewtopic.php?t=210
+
+MPlayer/mencoder
+http://www.mplayerhq.hu/design7/news.html
+
+Wget for Windows
+http://gnuwin32.sourceforge.net/packages/wget.htm
+
+
+
+

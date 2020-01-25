@@ -1,0 +1,12 @@
+#
+# See: ssh_config(5) 
+#
+# you might want to leave out 
+# the "User" option it will be set when main script is run 
+#
+NumberOfPasswordPrompts 1
+ConnectTimeout 2
+StrictHostKeyChecking no
+UserKnownHostsFile /dev/null
+LogLevel QUIET
+GSSAPIAuthentication no

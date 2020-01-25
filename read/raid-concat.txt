@@ -1,0 +1,78 @@
+X-Original-To: sunhelp@sunhelp.org
+Delivered-To: sunhelp@mrbill.net
+Date: Tue, 3 Jun 2003 18:26:35 -0400
+From: Phil Stracchino <alaric@caerllewys.net>
+To: sunhelp@sunhelp.org
+Subject: Re: [SunHELP] How Do I......
+
+On Tue, Jun 03, 2003 at 02:18:54PM -0400, Michael A. Turner wrote:
+>       I have a new sun server as some may know. I am about ready to give
+> up on Raid. $2K was just not budgetted for. So here is what I want to do. I
+> want to make a file system that spans the 4 disks in my D2 array. This array
+> consists of 4 36 GB drives. I would like to mount a /newdir on the system
+> where /newdir will span all four disks making the volume size of /newdir be
+> around 144GB. Can I do this? what is the command/tool for it? If not I will
+> have to mount the four disks seperatly.
+
+
+OK.  There are several questions you need to ask yourself about this.
+Which is most important to you -- space, speed, or redundancy? Can you
+spare any of that 144GB? Is cost the only thing stopping you from using
+RAID?
+
+Once you've thought about those, you're now ready to remember that
+Solaris ships with very good software RAID tools (there's even a
+graphical manager for them, if you're willing to endure the horror that
+is CDE), and ask yourself whether you want to:
+   (A) just join the disks end-to-end into one big logical disk?
+   (B) distribute data across all four disks in parallel?
+or (C) set up RAID5 across the four disks?
+
+Once you've chosen one, it's time to talk about how to do it.  (For all
+of these examples, I'm going to assume your disks are targets 1,2,3 and
+4 on controller 1, each partitioned as a single 36GB slice.  I'm also
+going to arbitrarily pick metadevice d10, though you can pick anything
+from d0 to d127.)
+
+
+(A) is called a concat, and it's generally not a good idea because it's
+an inferior solution to all the other options.  It has the vulnerability
+to failure of striping, without the speed.  If you wanted to do it,
+you'd do it like this:
+
+metainit d10 4 1 c1t1d0s0 1 c1t2d0s0 1 c1t3d0s0 1 c1t4d0s0
+
+You would then have a metadevice, /dev/md/dsk/d10, which you can newfs
+and mount.
+
+
+(B) is called a stripe.  It's fast because all four disks are sharing
+reads and writes, but like a concat, it has no redundancy.  Failure of
+any single disk will result in loss of the entire metadevice.  If you
+wanted to do it this way, you'd do it like this:
+
+metainit d10 1 4 c1t1d0s0 c1t2d0s0 c1t3d0s0 c1t4d0s0 -i 128k
+
+
+(C) is not as fast as a plain stripe due to the overhead of the parity
+calculations, but gives you the benefit of redundancy.  You can survive
+the failure of any single disk without loss of data or performance, but
+one full disk's worth of space* (out of however many disks you use) is
+used for parity, so your working data set would be 108GB instead of
+144GB.  If you wanted to do it this way, you would do this:
+
+metainit d10 -r c1t1d0s0 c1t2d0s0 c1t3d0s0 c1t4d0s0 -i 128k
+
+* A single disk's worth of space, but not a single disk -- parity data
+  is distributed across all of the disks.
+
+
+Before you can do any of these, you first need to create metadbs on your
+boot devices.  I suggest starting out by reading the man pages for
+metadb, metainit, and everything they refer you to.
+
+
+_______________________________________________
+SunHELP maillist  -  SunHELP@sunhelp.org
+http://www.sunhelp.org/mailman/listinfo/sunhelp
+

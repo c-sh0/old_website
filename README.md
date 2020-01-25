@@ -1,2 +1,2 @@
-# old_website
-Old Website
+# Old Website
+Just an archive of my old website

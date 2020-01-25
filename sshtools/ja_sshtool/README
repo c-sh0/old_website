@@ -1,0 +1,126 @@
+Date: Tue Aug 14 18:33:54 CDT 2012
+Auth: - csh
+---------------------------------------------------------------
+                 Just Another SSH Tool
+---------------------------------------------------------------
+
+1: What?, Why?
+---------------------
+* wanted a shell script && ssh client ONLY utility
+* for use when you have a lot hosts
+* did not want to use ssh keys, ssh-agent, etc..
+* did not want to rely on 'expect' or any other 3rd party tools that may not be installed
+
+     - uses ssh mutiplexing, REF: http://en.wikibooks.org/wiki/OpenSSH/Cookbook/Multiplexing
+     - uses a FIFO rather than writing password to disk
+     - prompts for password once
+     - uses SSH_ASKPASS and DISPLAY enviromanet variables (see man page for ssh)
+     - reads a list of hosts from a "group" file in hostlist dir
+     - Tested on FreeBSD & Linux
+
+2: Setup/Install
+---------------------
+
+    2a: For systems that do not have "setsid" binary installed, (FreeBSD), you'll need to compile setsid.c
+       $ cc -Wall -O2 -o setsid setsid.c
+
+        ** 2a Note: setsid.c should work on ALL OS's, (default is to use the included binary, See: 2b) **
+
+    2b: edit/set any sshtool options in sshtool.sh, (defaults should be fine)
+    2c: Add your "hostgroup" files in hostfiles directory (See sample file)
+    2d: Edit ssh.options if needed, thou defaults should be fine. (See man page for ssh_config, "man 5 ssh_config")
+
+        ** 2d Note: the "User" option it will be set when main script sshtool.sh is run **
+
+
+3: Usage
+---------------------
+
+Usage: ./sshtool.sh [-u username] [option] [-v] [hostgroup]
+
+    -u     :- set login username (default: user running this script)
+
+    -sh    :- log into each host in [hostlist]
+    -rsh   :- log into each host then start root shell (requires sudo on remote host) (*)
+
+    -cp    :- copy file or directory to each host in [hostlist]
+    -cmd   :- run command(s) on each host in [hostlist]
+
+    -o     :- open multiplex connections for each host in [hostgroup]
+              (keep connections active and exit)
+
+    -l     :- list hosts in [hostgroup]
+    -v     :- make some noise
+    -h     :- what your looking at
+
+ (*) See: README for more information
+
+[hostgroup]:/some/path/sshtool/hostfiles/
+
+      sample_hostgroup_hosts :-  Some Sample hostgroup host names
+
+
+Sample Run:
+-------------------------
+
+$ ./sshtool.sh -u someusername -cp sample_hostgroup_hosts
+Sending files...
+Source file or directory?: /tmp/some.file
+Destination location?: /home/someusername/
+Hostlist set: sample_hostgroup_hosts
+Username: someusername
+Enter SSH Password:
+Connecting, Please wait............................Done!
+killing sshwrpw() process, Terminated
+Sending /tmp/some.file to SomeHost.name1:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name23:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name10:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name7:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name20:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name11:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name4:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name79:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name33:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name5:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name30:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Sending /tmp/some.file to SomeHost.name98:/home/someusername/...
+some.file                                                                                                                     100%    8     0.0KB/s   00:00
+Cleaning up...
+$
+
+
+About "-rsh" Option:
+-------------------------------
+
+-rsh   :- log into each host then start root shell (requires sudo on remote host) (*)
+
+   As of this writing...
+   The following requirements need to be met for this to work:
+
+   1: Tested Only w/ csh as remote users login shell (script creates ~/.login)
+   2: Remote host(s) require sudo (uses SUDO_ASKPASS environment variable, see sudo(8))
+
+   For more detailed information, see: ssh_root_shell() function in sshtool.subr
+
+
+
+ToDo:
+-------------------------
+* add more options for login root shell
+* may change the way master mutiplex connections are setup,
+  could get ugly IF there are a ton of hosts in a hostgroup list
+* Since this is for my personal use, Proubly nothing, its pretty simple enough,
+  don't like something? then change it! :)
+
+

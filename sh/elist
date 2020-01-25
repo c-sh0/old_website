@@ -1,0 +1,273 @@
+#!/usr/bin/ksh
+#
+#    Mailing List Tool
+# ------------------------
+#
+#   This is script was created to help with editing of mailing lists.
+# I wrote this primarly for Majordomo however i am sure this can 
+# be used with other mailing list programs, sendmails native "include: "
+# in the aliases file , etc.. with minimal modifacations. Other programs 
+# i am sure exsist but, it was easier to write my own than look around, 
+# set-up, and configure something else. Basicly if you feel editing a 
+# list with just doing "vi filename" and thats all you want, then this
+# script will probably be a waste of time for you. The Idea behind this
+# script was that if you have 100+ lists or so, and more than one user 
+# that may "vi listname" at the same time. 
+#
+#   Overview:
+#      - Need to have root privs or equiv (sudo)
+#      - Options to mail or print a list summary
+#      - File locking for files being edited ( prevents other users editing the same file )
+#      - Command line arguments or standard input
+#
+#   Help Output:
+#
+#        Usage: elist <option> [listname]
+#
+#        Options:
+#
+#              -c [listname]  - Edit the "listname".config file
+#              -e [listname]  - Edit a mailing "listname"
+#              -m [e-mail]    - Mail all current list names and
+#                               number of subscribers to "e-mail"
+#              -l             - Show list of valid "listnames" and
+#                               number of subscribers
+#              -h             - Help
+#
+#       
+#   Note:
+#      - "listname" is nothing more than the filename which contains
+#        the list of e-mail addresses. 
+#
+#   Install:
+#      - Just set the configuration options
+#      - chmod 755 /path/to/elist  script  
+#
+#   To-Do: 
+#      - System logging ( keep track of who is doing what to what lists )
+#      - Add ability to create / delete new lists
+#      - Ability to search lists for e-mail address's
+#
+#
+#   10.10.01
+#  - NoCoNFLiC 
+#     nocon@darkflame.net 
+#
+
+
+####### Configuration Options ###################
+#
+
+# Set this to whatever your e-list domain name is
+# for example if you have a list "mylist@my.domain.com"
+# then the domain would be "my.domain.com"
+DOMAIN=my.domain.com
+
+# Directory where the list files and list.config files
+# are kept
+DIR=/usr/local/majordomo/lists
+
+# Chane this to you favorite editor
+EDITR=/usr/bin/vi
+
+# where your mailer program lives, ( supports -s option )
+MAILR=/usr/bin/mailx
+
+# Location of the "id" program ( suports -u or equiv.)
+IDP=/usr/xpg4/bin/id
+
+# Set this to whatever you want to call your temp file
+# needed for generating list summary
+TMPF=/var/tmp/lists$$.$$
+
+# Directory location for lock file
+LOCKDIR=/var/run
+
+#
+##### End Config ######
+################################################
+
+ID=`${IDP} -u`
+trap "cleanup" 1 2 3 15
+
+function getlistnames {
+cd ${DIR}
+echo "[*] Getting Current List Names.. (this will take a minute)"
+for LISTNAME in * ; 
+do
+     CONFIGFILE=`ls ${LISTNAME} | cut -d. -f1`
+
+       if [ ${LISTNAME} != ${CONFIGFILE}.config ]; then
+           
+           NMBRU=`grep -v "#" ${LISTNAME} | wc -l | awk '{print $1}'`
+           echo "${LISTNAME}      (${NMBRU} Subscriptions)" >> ${TMPF} 
+       fi
+done
+echo "[*] Now Sorting `wc -l ${TMPF} | awk '{print $1}'` Lists ..."
+sort ${TMPF} -o ${TMPF} 
+sleep 1
+echo "[*] Done. Here They Come.."
+sleep 4
+echo
+more ${TMPF} 
+}
+
+function editlist {
+ LISTLOCK=${LOCKDIR}/.${LISTNME}.lock
+
+if [ -f ${LISTLOCK} ]; then 
+   echo "[x] ${LISTLOCK} file found!"
+   echo "  - Someone may be editing ${LISTNME}@${DOMAIN}"
+   echo "  - Wait untill they are done or remove the lock manually."  
+   exit 0
+
+elif [ -f ${DIR}/${LISTNME} ]; then
+   touch ${LISTLOCK}
+   ${EDITR} ${DIR}/${LISTNME}
+   cleanup
+
+else
+   echo "[x] No Such File ${DIR}/${LISTNME}"
+fi
+}
+
+
+function editconfig {
+ LISTLOCK=${LOCKDIR}/.${LISTNME}.config.lock
+
+if [ -f ${LISTLOCK} ]; then
+   echo "[x] ${LISTLOCK} file found!"
+   echo "  - Someone may be editing ${LISTNME}.config"
+   echo "  - Wait untill they are done or remove the lock manually."
+   exit 0
+
+elif [ -f ${DIR}/${LISTNME}.config ]; then
+   touch ${LISTLOCK}
+   ${EDITR} ${DIR}/${LISTNME}.config
+   cleanup
+
+else
+   echo "[x] No Such File ${DIR}/${LISTNME}.config"
+fi
+}
+
+function maillists {
+echo "[*] Prepareing Current Lists Summary.. (this will take a minute)"
+cd ${DIR}
+for LISTNAME in * ;
+do
+     CONFIGFILE=`ls ${LISTNAME} | cut -d. -f1`
+
+       if [ ${LISTNAME} != ${CONFIGFILE}.config ]; then
+
+           NMBRU=`grep -v "#" ${LISTNAME} | wc -l | awk '{print $1}'`
+           echo "${LISTNAME}@${DOMAIN}      (${NMBRU} Subscriptions)" >> ${TMPF}
+       fi
+done
+sort ${TMPF} -o ${TMPF}
+cat ${TMPF} | ${MAILR} -s "Majordomo Lists Summary" ${EMAIL}
+echo "[*] `wc -l ${TMPF} | awk '{print $1}'` Total Lists."
+echo "[*] Summary has been sent to ${EMAIL}"
+echo "[*] Done."
+}
+
+function helpme {
+cat << EOF
+
+Elist: Mailing List Tool Help
+Usage: elist <option> [listname]
+
+Options: 
+
+     -c [listname]  - Edit the "listname".config file
+     -e [listname]  - Edit a mailing "listname"
+     -m [e-mail]    - Mail all current list names and 
+                      number of subscribers to "e-mail"
+     -l             - Show list of valid "listnames" and
+                      number of subscribers
+     -h             - Help  
+        
+EOF
+}
+
+
+function cleanup {
+if [ -f ${TMPF} ]; then
+  rm -rf ${TMPF}
+fi
+if [ -f ${LISTLOCK} ]; then
+  rm -rf ${LISTLOCK} 
+fi
+exit 0
+}
+
+if [ $ID -ne 0 ]; then
+    echo "[x] $0: Perrmission Denied."
+    exit 0
+fi
+
+ case ${1} in
+
+     -c) 
+         if [ ${3} ]; then
+              echo "${3}: Invalid Argument!"
+              echo "Try: elist -h  for help."
+              exit 0
+         elif [ ${2} ]; then 
+            LISTNME=${2}
+            editconfig
+         else
+           read LISTNME?"Enter Listname: " 
+           editconfig
+         fi;;
+
+     -e) 
+          if [ ${3} ]; then
+              echo "${3}: Invalid Argument!"
+              echo "Try: elist -h  for help."
+              exit 0
+          elif [ ${2} ]; then
+               LISTNME=${2}
+               editlist
+          else
+            read LISTNME?"Enter Listname: "
+            editlist
+          fi;;
+    
+     -m) 
+          if [ ${3} ]; then
+              echo "${3}: Invalid Argument!"
+              echo "Try: elist -h  for help."
+              exit 0
+          elif [ ${2} ]; then
+             EMAIL=${2}
+             maillists
+          else
+            read EMAIL?"Enter your E-mail Address: "
+            maillists
+          fi;;
+
+     -l) 
+          if [ ${2} ]; then
+              echo "${3}: Invalid Argument!"
+              echo "Try: elist -h  for help."
+              exit 0
+          else
+               getlistnames
+          fi;;
+     -h) 
+         if [ ${2} ]; then
+              echo "${2}: Invalid Argument!"
+              echo "Try: elist -h  for help."
+              exit 0
+          else
+              helpme
+          fi;;
+
+      *) echo "${1}: Invalid Option!"
+         echo "Try: elist -h  for help."
+         exit 0;;        
+  esac
+
+exit 0
+

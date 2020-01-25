@@ -1,0 +1,128 @@
+#!/bin/sh
+#
+#   A tool to wrap "vi" or any other file editor. What it does 
+# is after a file has been modified, you will recive a e-mail with 
+# the changes (diff). If a new file is created, ( $ wrapper.sh newfile.txt)
+# you will recive a e-mail Noting what file had been added. I wrote this 
+# to keep track of files changes made on a fairly large website where users
+# were making changes without notifacation. Though  Not the best solution, 
+# but it was a quick solution. 
+#
+#
+# - noconflic
+# Tue Dec 17 15:55:37 CST 2002
+#
+# http://nocon.darkflame.net/
+# nocon@darkflame.net
+#
+#
+#--------------------------------------------#
+#            BEGIN CONFIG                    #
+#--------------------------------------------#
+#
+
+# Who to send diffs to 
+ADDR=user@host.com
+
+# Command to wrap
+CMD=/usr/bin/vi
+
+# Temp file dir
+TMPD=/var/tmp
+
+# Commnads needed
+DIFFCMD=/bin/diff
+MAILPROG=/usr/bin/mailx
+
+#--------------------------------------------#
+#             END CONFIG                     #
+#--------------------------------------------#
+
+###################
+# Start Functions #
+###################
+
+cleanup() {
+rm -f ${TMPF} 
+rm -f ${DIFLE} 
+} 
+
+mailinfo() {
+cat << EOF
+
+Hostname: ${HOST} 
+Username: ${USER} 
+Fromhost: ${REMOTEHOST} 
+CurrentDir: `pwd` 
+
+Filename: ${FILE} 
+
+File Permissions:
+`ls -al ${FILE}`
+
+------------------------
+Diffs: (OLD < > NEW)
+------------------------
+
+`cat ${DIFLE}`
+
+EOF
+}
+
+newfileinfo() {
+cat << EOF
+
+Hostname: ${HOST}
+Username: ${USER}
+Fromhost: ${REMOTEHOST}
+CurrentDir: `pwd` 
+
+Filename: ${FILE}
+
+File Permissions:
+`ls -al ${FILE}`
+
+EOF
+}
+
+##############
+# Start Main #
+##############
+
+if [ ${1+"$@"} ]; then
+
+   DIFLE=${TMPD}/.diff.$$
+   FILE=${1}
+
+   if [ -f ${FILE} ]; then 
+
+            TMPF=${TMPD}/`echo ${FILE} | sed 's/^\///;s/\//_/g'`.$$
+            cp ${FILE} ${TMPF}
+            ${CMD} ${1+"$@"}
+            ${DIFFCMD} ${TMPF} ${FILE} > ${DIFLE}
+      
+              if [ -s ${DIFLE} ]; then
+                 mailinfo | ${MAILPROG} -s "Changes were made to ${FILE} on ${HOST}" ${ADDR} 
+              fi 
+          cleanup
+        exit 0 
+
+    else 
+         ${CMD} ${1+"$@"}
+
+            if [ -s ${FILE} ]; then
+              newfileinfo | ${MAILPROG} -s "NOTICE! File: ${FILE} was added on ${HOST}" ${ADDR} 
+            fi 
+        exit 0
+    fi
+
+else 
+   ${CMD} 
+   exit 0 
+fi 
+
+
+#################
+#     END       #
+#################
+

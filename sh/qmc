@@ -1,0 +1,178 @@
+#!/bin/sh
+##############################################################################
+##
+## Qmc - Qmail Control
+##
+## Allow some administration easily
+##
+## Chris Johnson, (c) Apr 1998, sixie@nccnet.co.uk
+##
+##############################################################################
+
+# Get the pid of qmail-send (change if this ps/grep/awk dosen't work)
+QMS_PID=`ps -ax | grep qmail-send | grep -v grep | awk '{ print $1 }'`
+
+# Command used to start qmail (this is the default that qmail uses on install.
+# Change whatever is needed).
+QM_GO='env - PATH="/var/qmail/bin:$PATH" csh -cf "qmail-start ./Maildir/ splogger qmail &"'
+
+# How to run touch for expiry (touch syntax varies)
+TOUCH_E='touch -t 010100001970'
+
+# How to run touch for refresh (touch syntax varies)
+TOUCH_R='touch'
+
+# Qmail home
+QMH=/var/qmail
+
+##############################################################################
+## No user servicable parts below
+##############################################################################
+qmc_syntax()
+{
+        echo "  Syntax is: `basename $0` {start|stop|restart|hup|flush|getpid|queue|expire|refresh|status|help}"
+        echo ''
+}
+
+QMC=$0
+
+if [ `id -u` -ne 0 ]
+then
+        echo 'You are not root'
+        echo '  You must be root to be able to run this.'
+        echo ''
+        echo 'Fatal error: aborting.'
+        exit
+fi
+
+if [ "x$1" = "xqmrunning" ]
+then
+        if [ "x$QMS_PID" = "x" ]
+        then
+                echo 0
+                exit 0
+        else
+                echo 1
+                exit 1
+        fi
+fi
+
+if [ "x$QMS_PID" = "x" ] && [ "x$1" != "xstart" ]
+then
+        echo 'Cant get PID of qmail-send.'
+        echo '  Is qmail running?'
+        echo "  Check the QMS_PID line in $0"
+        echo ''
+        echo 'Fatal error: aborting.'
+        exit
+fi
+
+if [ "x$QMS_PID" != "x" ] && [ "x$1" = "xstart" ]
+then
+        echo "Qmail is already running, pid $QMS_PID"
+        echo '  Cannot start qmail if already running. Please stop first.'
+        echo ''
+        echo 'Fatal error: aborting.'
+        exit
+fi
+
+if [ $# -lt 1 ]
+then
+        pt="`basename $QMC`> "
+        echo -n "$pt"
+        read cmd
+        while [ "x$cmd" != "xquit" ]
+        do
+                if [ "x$cmd" != "x" ]
+                then
+                        $QMC $cmd
+                fi
+                unset cmd
+                echo -n "$pt"
+                read cmd
+        done
+        exit
+fi
+
+if ( [ "x$1" != "xexpire" ] && [ "x$1" != "xrefresh" ] ) && [ $# -gt 1 ]
+then
+        echo 'Syntax error.'
+        qmc_syntax
+        echo 'Fatal error: aborting.'
+        exit
+fi
+
+if ( [ "x$1" = xexpire ] || [ "x$1" = "xrefresh" ] ) && [ $# -eq 1 ]
+then
+        echo 'Expire/Refresh needs message IDs'
+        echo ''
+        echo 'Fatal error: aborting.'
+        exit
+fi
+
+case $1 in
+        "start")        eval $QM_GO
+                ;;
+        "stop")         kill $QMS_PID
+                        while [ `$QMC qmrunning` -eq 1 ]
+                        do 
+                                sleep 1
+                        done
+                ;;
+        "restart")      $QMC stop
+                        $QMC start
+                ;;
+        "hup")          kill -HUP $QMS_PID
+                ;;
+        "flush")        kill -ALRM $QMS_PID
+                ;;
+        "getpid")       echo $QMS_PID
+                ;;
+        "queue")        $QMH/bin/qmail-qread
+                        echo ''
+                        $QMH/bin/qmail-qstat
+                ;;
+        "expire")       shift
+                        for i in $*
+                        do
+                                find $QMH/queue/info -name $i -exec $TOUCH_E {} \;
+                        done
+                        sync
+                        kill -ALRM $QMS_PID
+                ;;
+        "refresh")      shift
+                        for i in $*
+                        do
+                                find $QMH/queue/info -name $i -exec $TOUCH_R {} \;
+                        done
+                        sync
+                ;;
+        "status")       echo ''
+                        if [ `$QMC qmrunning` -eq 1 ]
+                        then
+                                qpid=`$QMC getpid`
+                                echo "Qmail is running, pid: $qpid"
+                        else
+                                echo "Qmail not running."
+                        fi
+                        echo ''
+                        $QMH/bin/qmail-qstat
+                ;;
+        "help")
+                        echo 'Commands: '
+                        echo '  start           Start qmail (if not running)'
+                        echo '  stop            Stop qmail (if running)'
+                        echo '  restart         Do a full stop/start'
+                        echo '  hup             Send qmail-send a hup'
+                        echo '  flush           Run through the queue once'
+                        echo '  getpid          Display PID of qmail-send'
+                        echo '  queue           Display the queue'
+                        echo '  expire <x> ...  Expire message(s) x ...'
+                        echo '  refresh <x> ... Refresh message(s) x ...'
+                        echo '  status          Status of qmail'
+                ;;
+        *)      echo 'Unknown parameter.'
+                qmc_syntax
+                echo 'Fatal error: aborting.'
+                exit
+esac

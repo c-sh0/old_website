@@ -1,0 +1,13 @@
+# List you hosts here, (IP or host name) 
+# 
+# -: breif desscription of the list :-
+#
+# Description: Some Sample hostgroup host names  
+#
+some.host 
+localhost 
+somehost.number.2 
+192.0.0.10 
+# host.commented.out.local 
+some.otherhost
+you.get.the.idea

@@ -1,0 +1,98 @@
+#!/bin/sh
+#
+# 07.29.01
+# Quick Little wrapper Script for gcc
+# 
+# I wrote this because i wanted to see who and what
+# was being compiled on a system that had suspect
+# users.
+#
+# What this does is, mail a copy of the program
+# being compiled by non-root users and makes a note
+# in syslog. This can easily be modifided for other
+# programs. 
+#
+# - NoCoNFLiC  
+
+#---------------------------------------
+#        Config Options
+#---------------------------------------
+#
+# Syslog Facility see syslog.conf 
+SYSLOGF=user.info
+
+# Path to logger(1)
+LOGGER=/usr/bin/logger
+
+# Path to program to log 
+COMMAND=/usr/bin/gcc
+
+# String name to help identify the program
+# in the log file(s)
+LGS=GCC
+
+# Who to mail the program to
+MAILADR=root
+
+# Path to mail program
+# Note: mail progam needs to have the "-s" switch
+MAILPROG=/bin/mail
+
+# Path to hostname program
+HOSTN=`/bin/hostname`
+
+# Path to the id program
+# Note: needs to have the "-u" switch
+ID=`/usr/bin/id -u` 
+
+# Path to "Print Working Directory" program
+CWD=`/bin/pwd` 
+
+# Path to the date program
+DTE=`/bin/date`
+
+
+#----------------------------------------------------
+#          END Configuration
+#----------------------------------------------------
+#
+# You shouldn't have to modify anything below 
+#----------------------------------------------------
+
+if [ $ID -ne 0 ]; then
+
+FILE=${1+"$@"}
+
+for i in $FILE ; do
+  if [ -f $i ]; then
+
+PROG=`pwd`/$i
+ID=`/usr/bin/id`
+
+$LOGGER -p $SYSLOGF "[$LGS] compile program: $PROG"
+
+function mailinfo {
+cat << EOF
+
+
+========================================
+$HOSTN
+$DTE
+$ID
+cwd: $CWD
+========================================
+
+Filename: $PROG
+----------------------------------
+`cat $PROG`
+EOF
+}
+
+mailinfo | $MAILPROG -s "[$LGS]: Program Compile Info" $MAILADR 
+$LOGGER -p $SYSLOGF "[$LGS] compile program: $PROG mailed to: $MAILADR"
+
+  fi
+done
+fi
+  exec $COMMAND ${1+"$@"}
+exit 0

@@ -1,0 +1,69 @@
+#!/bin/ksh 
+# System Resource Monitoring Script. Solaris
+# 
+# To help you easily gather various system resource usage statistics, you can
+# use the following script. This script runs commands such as vmstat,
+# iostat, netstat and so on over a specified interval. It places a copy of the
+# output in the /tmp directory, where you can examine system resource usage
+# statistics in a centralized location. Since this is a simple Korn shell script,
+# you can easily modify the script to suit your needs. For example, you can
+# change the interval the script uses to sample system activity, the location of
+# the output directory, and more.
+#
+
+LOGDIR="/tmp/test"
+mkdir $LOGDIR
+
+NETSTAT_OUTFILE="$LOGDIR/netstat.out"
+MPSTAT_OUTFILE="$LOGDIR/mpstat.out"
+VMSTAT_OUTFILE="$LOGDIR/vmstat.out"
+IOSTAT_OUTFILE="$LOGDIR/iostat.out"
+PS_OUTFILE="$LOGDIR/ps_aux.out"
+INTERVAL=5
+COUNT=10
+TIME=`expr $INTERVAL \* $COUNT`
+TIMEPLUS=`expr $TIME + 5`
+X=1
+
+
+while [ $X != 200 ]
+  do
+
+       echo "" >> $PS_OUTFILE
+       date >> $PS_OUTFILE
+       /usr/ucb/ps -aux >> $PS_OUTFILE &
+
+       echo "" >> $MPSTAT_OUTFILE
+       date >> $MPSTAT_OUTFILE
+       mpstat $INTERVAL $COUNT >> $MPSTAT_OUTFILE &
+       MPSTATPID=$!
+
+       echo "" >> $VMSTAT_OUTFILE
+       date >> $VMSTAT_OUTFILE
+       vmstat  $INTERVAL $COUNT >> $VMSTAT_OUTFILE &
+       VMSTATPID=$!
+
+       echo "" >> $IOSTAT_OUTFILE
+       date >> $IOSTAT_OUTFILE
+       iostat -xp $INTERVAL $COUNT >> $IOSTAT_OUTFILE &
+       IOSTATPID=$!
+
+       echo "">> $NETSTAT_OUTFILE
+       date >> $NETSTAT_OUTFILE
+       netstat -i $INTERVAL >> $NETSTAT_OUTFILE &
+       NETSTATPID=$!
+
+       echo "mpstat $MPSTATPID"
+       echo "vmstat $VMSTATPID"
+       echo "iostat $IOSTATPID"
+       echo "netstat $NETSTATPID"
+
+   echo "sleeping for $TIMEPLUS"
+   sleep $TIMEPLUS
+
+   echo "sleeping done"
+
+   kill -9  $NETSTATPID
+
+X=`expr $X + 1`
+done

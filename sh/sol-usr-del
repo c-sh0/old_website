@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+###############################################
+# For Solaris.
+#
+#  What this script does:
+#
+#   - checks if user running the script is root
+#       * if the user is not root , exit and mail root with information on who ran the script
+#         and what username was triing to be removed
+#   - checks to see if the user exisists in /etc/passwd
+#       * if not exit on error 1
+#   - if all checks pass remove user, homedir, and mail spool.
+#       * send notice mail to root of user removal and exit.
+#
+#  - NoCoNFLiC
+#
+################################################
+####################
+# Config if needed.
+####################
+#
+ID=`/usr/xpg4/bin/id -u`
+USRRM=/usr/sbin/userdel
+MAILDIR=/var/mail
+#
+####################
+# End config.
+####################
+
+if [ $# -ne 1 ]; then
+    echo "[x] Usage: $0 <username> "
+ exit 1
+fi
+USR=`grep $1 /etc/passwd | cut -d: -f1`
+if [ ${USR} ]; then
+  if [ $ID = 0 ]; then
+     ${USRRM} -r $1
+  echo "[*] working......."
+if [ -f ${MAILDIR}/$1 ]; then
+     rm -rf ${MAILdir}/$1
+fi
+   echo "[*] USER: $1 removed."
+   echo [`date`]: UID: $1 --removed from `hostname` | mail -s "[ NOTICE ]: User Removed" root
+else
+   echo "[x] YOU MUST BE ROOT"
+   echo [`date`]: UID:`id` --wanted to remove UID: $1 from `hostname` | mail -s "[ ALERT ]: User Remove Attempt !" root
+ sleep 1
+  exit 0
+  fi
+exit 0
+fi
+  echo "[x] NO SUCH USER: $1"
+exit 1
+

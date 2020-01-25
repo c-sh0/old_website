@@ -1,0 +1,108 @@
+#!/usr/bin/expect -f
+#
+# Thu Nov 14 19:39:24 CST 2002
+#############################################################################################
+#
+#  Name: sshcmd
+#-------------------------
+#
+# My first expect script!  whoo hoo!! heh
+#
+#  I needed a script that would log into a number of hosts and run the same
+# command as root using sudo and 'ssh host <command>'. The old method i was 
+# using was not very practical, since i had to type in the passwd twice for 
+# each system (login and then sudo). When you have 30+ systems, this can be 
+# a bit of a pain. I didn't want to use the ssh "~/.ssh/known_hosts" method 
+# because i wasn't confortable using host based authentication and/or allowing 
+# remote root logins with one global password. So using a normal user account 
+# along with limited sudo gives an extra layer of security (not that this 
+# method is "totaly secure"). 
+# 
+# Usage:
+#
+#  The program take only on optional argument "root" 
+#   
+#     ./sshexpect [root]
+#      root --- Execute command as root on each host.        
+#
+#   This results in the execution of "ssh host sudo <command(s)>" on each host. 
+# Assuming of course "sudo" is installed and configured on each host. Execute
+# without the "root" option results in commands being executed as a normal user.
+# 
+# Todo:
+#
+#   - Maybe add scp support. 
+#   - Add optinal user login (right now uses user running the script)
+#   - Refine the code. 
+#  
+#
+# - Enjoy!
+#
+# - noconflic
+# nocon@darkflame.net
+# http://nocon.darkflame.net
+# 
+#############################################################################################
+#
+# Change the host list here.
+#
+# List of hosts/ip's to connect to.
+# Don't forget the trailing '\'
+#
+set hosts [list \
+           host1 \
+           192.168.1.5 \
+           shel.be.org \
+           127.0.0.1 \
+          ]
+
+
+########################################################
+
+if {$argc>1} {
+      send_user "Usage: $argv0 \[root\]\n"
+      send_user "root --- Execute command as root on each host.\n"
+      exit
+}
+
+set user [lindex $argv 0]
+set prog ssh 
+set sucmd sudo
+
+set timeout -1
+stty -echo
+send_user "SSH Password: "
+expect_user -re "(.*)\n"
+set password(pass) $expect_out(1,string)
+send_user "\n"
+
+stty echo
+send_user "Enter Command: "
+expect_user -re "(.*)\n"
+set command(cmd) $expect_out(1,string)
+
+foreach host [set hosts] {
+  send_user "\[\*\] Connecting to $host ...\n"
+   
+     if [string match  $user root] { 
+        
+        spawn $prog $host $sucmd $command(cmd)
+        expect "password:"
+        send $password(pass)\r 
+        stty -echo
+        expect "Password:"
+        send $password(pass)\r
+        interact
+
+     } else {
+
+        spawn $prog $host $command(cmd)
+        expect "password:"
+        send $password(pass)\r
+        interact
+
+     }
+}
+
+send_user "\[\*\] Done.\n"
+exit

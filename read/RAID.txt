@@ -1,0 +1,268 @@
+Compiled by: nocon
+Thu Dec  5 21:13:41 CST 2002
+http://nocon.darkflame.net
+
+
+                                     Solaris disk suite RAID5 mini how-to 
+
+
+Packages
+--------------------------------------------------------------------------------------------
+
+You can download from here:
+
+       http://wwws.sun.com/software/solaris/get.html#4 (Includes patch: 108693-06)
+
+      or 
+
+On the Solaris CD:
+
+       .../Solaris_8/EA/products/DiskSuite_4.2.1/
+
+=============================================================================================
+
+For command line DiskSuite
+----------------------------------
+
+ SUNWmdnr     Solstice DiskSuite Log Daemon Configuration Files (sparc) 4.2.1,REV=1999.11.04.18.29 (optoinal)
+ SUNWmdnu     Solstice DiskSuite Log Daemon (sparc) 4.2.1,REV=1999.11.04.18.29 (optoinal)
+ SUNWmdr      Solstice DiskSuite Drivers (sparc) 4.2.1,REV=1999.12.03.10.00
+ SUNWmdu      Solstice DiskSuite Commands (sparc) 4.2.1,REV=1999.11.04.18.29
+ SUNWmdx      Solstice DiskSuite Drivers(64-bit) (sparc) 4.2.1,REV=1999.11.04.18.29
+
+
+============================================================================================
+
+
+Preliminary Information for Creating RAID5 Metadevices
+-----------------------------------------------------------
+
+    * A RAID5 metadevice uses storage capacity equivalent to one slice in the metadevice to store redundant information
+      about user data stored on the remainder of the RAID5 metadevice's slices. The redundant information is distributed
+      across all slices in the metadevice. Like a mirror, a RAID5 metadevice increases data availability, but with a
+      minimum of cost in terms of hardware.
+
+    * The system must contain at least three state database replicas before you can create RAID5 metadevices.
+
+    * A RAID5 metadevice can only handle a single slice failure.
+
+    * Follow the 20-percent rule when creating a RAID5 metadevice: because of the complexity of parity calculations,
+      metadevices with greater than about 20 percent writes should probably not be RAID5 metadevices. If data redundancy
+      is needed, consider mirroring.
+
+    * There are drawbacks to a slice-heavy RAID5 metadevice: the more slices a RAID5 metadevice contains, the longer
+      read and write operations will take if a slice fails.
+
+    * A RAID5 metadevice must consist of at least three slices.
+
+    * A RAID5 metadevice can be grown by concatenating additional slices to the metadevice. The new slices do not store
+      parity information, however they are parity protected. The resulting RAID5 metadevice continues to handle a single
+      slice failure.
+
+    * The interlace value is key to RAID5 performance. It is configurable at the time the metadevice is created; thereafter,
+      the value cannot be modified. The default interlace value is 16 Kbytes. This is reasonable for most applications.
+
+    * Use the same size disk slices. Creating a RAID5 metadevice from different size slices results in unused disk space
+      in the metadevice.
+
+    * Do not create a RAID5 metadevice from a slice that contains an existing file system. Doing so will erase the data
+      during the RAID5 initialization process.
+
+    * RAID5 metadevices cannot be striped, concatenated, or mirrored.
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+How to Create Initial State Database Replicas From Scratch (Command Line)
+--------------------------------------------------------------------------------
+
+  NOTE: 
+      * Though NOT required, these are 4 18gb Harddrives and have been pre-formated for UFS 
+  
+
+Choose some disks that are free:
+
+             # cat /etc/vfstab
+               [...]
+
+               #/dev/dsk/c0t1d0s0      /dev/rdsk/c0t1d0s0      /d1     ufs     2       yes     -
+               #/dev/dsk/c0t2d0s0      /dev/rdsk/c0t2d0s0      /d2     ufs     2       yes     -
+               #/dev/dsk/c0t3d0s0      /dev/rdsk/c0t3d0s0      /d3     ufs     2       yes     -
+               #/dev/dsk/c0t4d0s0      /dev/rdsk/c0t4d0s0      /d4     ufs     2       yes     -
+
+       - In this example we have 4 18gb (estimated)  harddrives that we will use in a RAID 5 array. This will 
+         give us a total of 72gb (estimated) that the system will see as one disk.
+
+
+Create the Initial State Databases on each of the four disks;
+
+              # metadb -a -f c0t1d0s0 c0t2d0s0 c0t3d0s0 c0t4d0s0
+              
+        - The -a and -f options are used together to create the initial state database replicas. four initial state database
+          replicas, one on each of four slices, are created. By spreading the state database replicas across controllers, 
+          you can increase metadevice performance and reliability. The metadb command checks that the replicas are active, as 
+          indicated by the -a flag.
+
+To show the new databases created:
+
+               # metadb
+                 flags           first blk       block count
+                   a        u         16              1034            /dev/dsk/c0t1d0s0
+                   a        u         16              1034            /dev/dsk/c0t2d0s0
+                   a        u         16              1034            /dev/dsk/c0t3d0s0
+                   a        u         16              1034            /dev/dsk/c0t4d0s0
+
+               #
+
+Entrys should now be in /etc/system:
+
+               # tail /etc/system
+                 [...]
+
+                 * Begin MDD database info (do not edit)
+                 set md:mddb_bootlist1="sd:128:16 sd:136:16 sd:144:16 sd:152:16"
+                 * End MDD database info (do not edit)
+
+               
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+How to Create a RAID5 Metadevice (Command Line)
+--------------------------------------------------
+
+The following examples create RAID 5 array on the four disks that do not contain any data:
+
+                 # metainit d45 -r c0t1d0s0 c0t2d0s0 c0t3d0s0 c0t4d0s0
+                 d45: RAID is setup
+                 # 
+
+
+          - The RAID5 metadevice d45 is created with the -r option from four slices. Because no interlace is specified, 
+            d45  uses the default of 16 Kbytes. The system verifies that the RAID5 metadevice has been set up, and begins 
+            initializing the metadevice.
+
+Check status:
+
+                 # metastat
+                  d45: RAID
+                       State: Initializing 
+                       Initialization in progress: 13% done
+                       Interlace: 32 blocks
+                       Size: 107498280 blocks
+                   Original device:
+                       Size: 107499744 blocks
+                           Device              Start Block  Dbase State        Hot Spare
+                           c0t1d0s0                2840     Yes   Initializing 
+                           c0t2d0s0                2840     Yes   Initializing 
+                           c0t3d0s0                2840     Yes   Initializing 
+                           c0t4d0s0                3530     Yes   Initializing 
+                  # 
+
+
+          NOTE:
+            * You must wait for the initialization to finish before you can use the RAID5 metadevice.
+
+
+----------------------------------------------------------------------------------------------------------------------
+
+How to Create a File System on a Metadevice (Command Line)
+-----------------------------------------------------------------
+
+Run newfs(1M) command on the Metadevice:
+
+                  # newfs /dev/md/rdsk/d45
+                    newfs: construct a new file system /dev/md/rdsk/d45: (y/n)? y
+                    Cylinder groups must have a multiple of 8 cylinders with the given parameters
+                    Rounded cgsize up to 200
+                    /dev/md/rdsk/d45:       107498280 sectors in 42828 cylinders of 5 tracks, 502 sectors
+                            52489.4MB in 1071 cyl groups (40 c/g, 49.02MB/g, 6144 i/g)
+                    super-block backups (for fsck -F ufs -o b=#) at:
+                     32, 100944, 201856, 302768, 403680, 504592, 605504, 706416, 803232, 904144,
+                     1005056, 1105968, 1206880, 1307792, 1408704, 1509616, 1606432, 1707344,
+                     1808256, 1909168, 2010080, 2110992, 2211904, 2312816, 2409632, 2510544,
+
+                    [...]
+
+The fsck(1M) command verifies the new file system:
+
+                  # fsck /dev/md/rdsk/d45
+                    ** /dev/md/rdsk/d45
+                    ** Last Mounted on 
+                    ** Phase 1 - Check Blocks and Sizes
+                    ** Phase 2 - Check Pathnames
+                    ** Phase 3 - Check Connectivity
+                    ** Phase 4 - Check Reference Counts
+                    ** Phase 5 - Check Cyl groups
+                    2 files, 9 used, 52909434 free (18 frags, 6613677 blocks,  0.0% fragmentation)
+                  # 
+
+-------------------------------------------------------------------------------------------------------------------------
+
+Where to Go From Here
+-----------------------------------
+
+----------------------------------------------------------------------------------------------------------------------
+If You Want to Make the File System Available?                    Then: 
+===============================================                   ==================================================
+Now                                                               Mount the file system with the mount(1M) 
+                                                                  command, specifying the metadevice name 
+                                                                  as the mount device, such as /dev/md/dsk/d0.
+
+---------------------------------------------------------------------------------------------------------------------
+
+Automatically when the system boots                               Create or modify the file system's entry in 
+                                                                  /etc/vfstab file, using the metadevice block 
+                                                                  and raw device names.
+---------------------------------------------------------------------------------------------------------------------
+
+As a shared (exported) resource                                   Create a file system entry in the /etc/dfs/dfstab 
+                                                                  file. 
+-----------------------------------------------------------------------------------------------------------------------
+
+Here is an example of "mounting" the file system at boot:
+---------------------------------------------------------
+
+Edit /etc/vfstab:
+
+             # vi /etc/vfstab
+               
+               #device         device          mount           FS      fsck    mount   mount
+               #to mount       to fsck         point           type    pass    at boot options
+               #
+               [...]
+
+               /dev/md/dsk/d45  /dev/md/rdsk/d45  /var/mail       ufs     1       yes     -
+
+After editing and saving mount the filesystem:
+
+             # mount /var/mail
+             # df -ak 
+               [...]
+
+               /dev/md/dsk/d45      52909443       9 52380340     1%    /var/mail
+             # 
+
+
+Reboot the system to test if you choose:
+
+             # /etc/shutdown -i6 -g0 -y
+
+After Reboot the system will mount the RAID array automaticly.  And your done.
+
+
+=======================================================================================
+
+References:
+----------------
+ 
+Download:
+http://wwws.sun.com/software/solaris/get.html#4
+
+User Guide:
+http://docs.sun.com/db/doc/805-5961?q=disksuite
+
+Some Notes:
+http://www.eos.ncsu.edu/eos/info/ccc_info/services/disksuite/
+
+DiskSuite Step by Step:
+http://www.livewire.ca/Service/disksuite.html
+

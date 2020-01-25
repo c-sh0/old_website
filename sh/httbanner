@@ -1,0 +1,188 @@
+#!/bin/ksh 
+# ----------------------------------------------------------------------------------------- 
+#
+#  HTTP Banner Grabb  
+#  --------------------------------
+#  Why Did I write this ?? 
+#  Boredom. I wanted to check a Range of IP's to
+#  See What Type Of Web Server They were Running, If Any.
+#  Also A Tool that preforms a Basic Ping Sweep.
+#
+#    NOTE :
+#        Make Sure you Specify what Platform your running this on
+#        The way this was writtn I found that Ping has differnt command
+#        Line Options than Solaris. Also, you will need Netcat for this 
+#        To work.
+#
+#  This Runs a little slower than i would Like , and Probly could have
+#  Been better Written in C But, I Don't know it well enough yet.
+#   
+#   Tested and runs fine On Solaris. works fine with BSD/Linux. 
+#    Its a Shell Script ! ;-P If You don't have /bin/ksh then change the shell
+#  /bin/sh should work Fine.
+#
+#   Have Fun.
+#            -- NoCoNFLiC
+#
+#   Usage: ./htbanner.sh < ip-address > &  ( throw it in the background )
+#            tail -f < Logfile >
+#
+# -------------------------------------------------------------------------------------------
+#
+###########################
+#  Config Options
+#
+PORT=80
+# Path To Netcat
+TELNT=/sbin/nc
+PING=/bin/ping
+LOG=htbanner.log
+# nc Connect Timeout
+TIMEOUT=2
+#
+
+# Change this Value for your O/S Type ( Used for Ping )
+# 1 ---- Solaris 
+# 2 ---- BSD/Linux
+#
+OSTYP=2
+#
+
+
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0  < ip-address >"
+    exit 1
+fi
+
+IP1=${1}
+MAX=223
+END=254
+
+## Solaris
+#
+psolaris () {
+
+TEST=`${PING} ${IP1} 2 | cut -d" " -f4`
+
+if [ "${TEST}" ]; then
+
+ICMP="( NO )"
+
+RES=`connect | grep "Server:"`
+      if [ ! "${RES}" ]; then
+            HTTPD="( None on P:${PORT} )"
+            echo "${IP1}        ${ICMP}           ${HTTPD}" >> ${LOG}
+         else
+            echo "${IP1}        ${ICMP}            ${RES}" >> ${LOG} 
+        fi 
+else
+
+
+ICMP="( YES )"
+RES=`connect | grep "Server:"`
+
+     if [ ! "${RES}" ]; then
+
+HTTPD="( None on P:${PORT} )"
+            echo "${IP1}        ${ICMP}           ${HTTPD}" >> ${LOG}
+         else
+            echo "${IP1}        ${ICMP}           ${RES}" >> ${LOG}
+        fi
+fi;}
+
+## BSD/Linux
+#
+pother () {
+
+TEST=`${PING} -c 1 ${IP1} | grep "%" | cut -d" " -f4`
+if [ "${TEST}" = 0 ]; then
+
+ICMP="( NO )" 
+RES=`connect | grep "Server:"`
+      if [ ! "${RES}" ]; then
+            HTTPD="( None on P:${PORT} )"
+            echo "${IP1}        ${ICMP}         ${HTTPD}" >> ${LOG}
+         else
+            echo "${IP1}        ${ICMP}          ${RES}" >> ${LOG}
+        fi
+else
+
+
+ICMP="( YES )"
+RES=`connect | grep "Server:"`
+
+     if [ ! "${RES}" ]; then
+
+HTTPD="( None on P:${PORT} )"
+            echo "${IP1}        ${ICMP}          ${HTTPD}" >> ${LOG}
+         else
+            echo "${IP1}        ${ICMP}          ${RES}" >> ${LOG}
+        fi
+fi;}
+OCT1=`echo "${IP1}" | awk -F. '{ print $1 }'`
+OCT2=`echo "${IP1}" | awk -F. '{ print $2 }'`
+OCT3=`echo "${IP1}" | awk -F. '{ print $3 }'`
+OCT4=0
+
+IP1="${OCT1}.${OCT2}.${OCT3}.${OCT4}"
+
+
+if [ ${OCT1} -gt ${MAX} ]; then
+     echo "Error:  Invalid IP Address !"
+  exit 1
+fi
+
+
+connect () {
+ {
+sleep 2
+    echo "HEAD / /HTTP/1.0"
+    echo
+    echo
+sleep 1
+} | ${TELNT} ${IP1} ${PORT} -w ${TIMEOUT};}
+
+
+if [ ${OSTYP} = 1 ]; then
+ GRABIT=psolaris
+   else
+ GRABIT=pother
+fi
+
+echo "================================================================" >> ${LOG}
+date >> ${LOG}
+echo "IP Addr.              ICMP?          HTTPD Serv." >> ${LOG}
+echo "--------------    -------------      ------------------" >> ${LOG}
+echo
+echo "-----------------------------------"
+echo "HTTP Banner Grabb v.0.1"
+echo "  -- NoCoNFLiC"
+echo "-----------------------------------"
+echo
+echo " OK, Here We Go! "
+echo " Get a Cup of Coffee or something. This Could Take a While."
+echo
+echo "To See Progress Type: tail -f ${LOG} "
+
+sleep 2
+
+echo "Working....."
+
+while [ ${OCT4} -lt ${END} ] > /dev/null 2>&1 
+ do
+
+OCT4=$(( ${OCT4} +1 ))
+IP1="${OCT1}.${OCT2}.${OCT3}.${OCT4}"
+
+ ${GRABIT}
+
+done
+
+echo
+echo "Run Complete."
+WSERVERS=`grep "Server:" ${LOG} | grep "${OCT1}" | wc -l`
+echo "Found ${WSERVERS} Running Web Services."
+echo "Check ${LOG} for Details."
+echo
+exit 0

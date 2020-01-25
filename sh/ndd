@@ -1,0 +1,24 @@
+#!/bin/ksh
+#
+# ndd.sh
+#
+# Andres Kroonmaa kindly supplied a nifty script to check all existing values 
+# for a network component (tcp, udp, ip, icmp, etc.). Solaris
+# Uses ndd(1M) see man page for more information
+#
+
+PATH=/usr/sbin:$PATH
+if [ -z "$1" ]; then
+   echo "Usage: $0 [udp | tcp | ip | icmp | arp | ... ]"
+   exit
+fi
+
+ndd /dev/$1 '?' | nawk -v c="ndd /dev/$1" '
+/write/ {
+  split($0,a,/[ \t(]/);
+  n=c t " " a[1];
+  printf "echo %s = ",a[1];
+  printf "`%s`\n",n;
+
+
+}' | sh

@@ -1,0 +1,198 @@
+If the machine is headless and you are using a serial console, you can make field diagnosis a 
+little easier by ensuring that POST output is written to the console.
+
+ok setenv diag-device disk
+ok setenv diag-switch? true 
+
+   or using eeprom command 
+
+# /usr/sbin/eeprom diag-device=disk
+# /usr/sbin/eeprom diag-switch\?=true
+
+You should create a script which forces system daemons to start with a more secure umask:
+
+/bin/touch /etc/init.d/umask.sh
+/bin/echo 'umask 022' > /etc/init.d/umask.sh
+/bin/chmod 744 /etc/init.d/umask.sh
+/bin/ln /etc/init.d/umask.sh /etc/rc0.d/S00umask.sh
+/bin/ln /etc/init.d/umask.sh /etc/rc1.d/S00umask.sh
+/bin/ln /etc/init.d/umask.sh /etc/rc2.d/S00umask.sh
+/bin/ln /etc/init.d/umask.sh /etc/rc3.d/S00umask.sh
+/bin/ln /etc/init.d/umask.sh /etc/rcS.d/S00umask.sh 
+
+Tightening Networking
+You should make the following adjustments to the end of /etc/init.d/inetinit to protect the 
+machine from SYN floods, ARP spoofs, smurf attacks and from being unwitting allies to DDoS 
+attackers.
+
+Append to /etc/init.d/inetinit: ndd -set /dev/tcp tcp_conn_req_max_q0 10240.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_ignore_redirect 1.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_send_redirects 0.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_ire_flush_interval 60000.
+Append to /etc/init.d/inetinit: ndd -set /dev/arp arp_cleanup_interval 60.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_forward_directed_broadcasts 0.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_forward_src_routed 0.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_forwarding 0.
+Append to /etc/init.d/inetinit: ndd -set /dev/ip ip_strict_dst_multihoming 1. 
+
+
+ Modify /etc/init.d/inetsvc to disable DHCP and inetd. (This will eliminate remote access until ssh is 
+installed ) There is only one section you need to keep: the ifconfig line which resets netmask and 
+broadcast addresses. Comment out every other line in the file except the one which says:
+
+* /usr/sbin/ifconfig -auD4 netmask + broadcast +
+
+NOTE: If you were to use this machine as a DNS server, you should also uncomment the conditional which asks 
+whether /usr/sbin/in.named and /etc/named.conf exist, and if so, to start up in.named. (However, you should 
+also get the latest copy of BIND from ISC and replace Sun's binary with one you compiled.)
+
+Since inetd has been disabled, remove its configuration file. A later reappearance will be a smoking gun.
+
+   /bin/rm /etc/inet/inetd.conf /etc/inetd.conf 
+
+
+File System Configuration
+There are two levels of protection which you want to enforce here. First, you want to prevent trojan 
+horse programs from replacing system binaries in /usr and /opt. So you mount them read-only. Second, 
+you want to prevent set-uid scripts from executing on any of these filesystems. You made this possible by 
+creating /dev and /devices filesystems above. Mounting a filesystem nosuid also prevents devices from operating, 
+so you need those to be separate filesystems from the root directory in order to mount / nosuid. In /etc/vfstab: 
+
+  ***** DO this to suit your needs, (ie: the above does not work for all enviornments) ********
+  My Example:
+           /dev/dsk/c0t0d0s5       /dev/rdsk/c0t0d0s5      /opt    ufs     2       yes     nosuid
+           /dev/dsk/c0t3d0s0       /dev/rdsk/c0t3d0s0      /spare  ufs     2       yes     nosuid
+
+
+NOTE: If you were running this machine as a DNS server, you might leave /var mounted rw. This would permit you 
+to create a chrooted environment for BIND somewhere under the /var directory, since a chrooted environment requires 
+devices. Given this particular file system design, /var is likely the best candidate for being mounted rw since it 
+generally should not contain executables. However, it is far from a perfect choice because it certainly can contain them.
+
+You should also ensure that removable media do not include set-uid executables. Since this machine is kept in a 
+data center away from users, Volume Management should be turned off.
+
+  /usr/sbin/pkgrm SUNWvolr SUNWvolu SUNWvolg 
+
+
+Administrative Accounts
+Several of the accounts in /etc/passwd are unneccessary, but to ensure that older programs do not break, 
+you will just effectively disable them. You also should ensure that these accounts cannot use ftp, cron or at.
+
+Make /dev/null the default shell for all users other than root or sys in /etc/passwd.
+Make /sbin/sh the default shell for root and sys.
+Issue /bin/passwd -l <user> for every user in /etc/passwd other than root. This will 
+lock out the accounts. (Replaces "NP" in the shadow file with "*LK*".)
+Remove crontab entries in /var/spool/cron/crontabs for all users except root and sys.
+Add adm, lp, uucp and nobody4 to /usr/lib/cron/at.deny.
+Add adm, lp, uucp and nobody4 to /usr/lib/cron/cron.deny.
+Create an /etc/ftpusers file containing all users in /etc/passwd.
+   /bin/chown root:root /etc/ftpusers
+   /bin/chmod 600 /etc/ftpusers 
+
+
+System and Process Accounting
+make sure that the sys user has a viable path so that system accounting could function. 
+To get it started:
+
+Uncomment the two conditionals in /etc/init.d/perf.
+Uncomment the sa1 and sa2 cron entries in /var/spool/cron/crontabs/sys. 
+
+Process accounting can take up a large amount of space on the drive and will cause performance degredation. 
+However, it provides some excellent information about every process running. To activate and look at its output:
+
+  Turn accounting on and write the output to /var/adm/pacct: /usr/lib/acct/accton /var/adm/pacct
+  View the contents of /var/adm/pacct: /bin/acctcom
+  Turn accounting off: /usr/lib/acct/accton 
+
+If this information is desired, you should set up a script to periodically zip up this output and rotate the 
+log. You can use the syslog template above and then cron your script. 
+
+
+TCP_STRONG_ISS sets the TCP initial sequence number generation parameters. Setting the value to 2 enables RFC 
+1948 sequence number generation, unique per connection ID. This makes it more difficult to hijack a session by 
+predicting TCP sequencing.
+
+  Set TCP_STRONG_ISS=2 in /etc/default/inetinit. 
+
+
+
+Create ~root/.rhosts and /etc/hosts.equiv.  Leave them empty, and change the permissions to 000.  Exploits 
+which attempt to simply write "+ +" to one of these files will fail with EPERM.  Simply removing them is not as 
+strong.
+
+# touch /.rhosts /etc/hosts.equiv
+# chmod 000 /.rhosts /etc/hosts.equiv
+
+
+Create /etc/shells and include all shells on the system, if you plan to install new ones.  See the getusershell(3C) 
+man page for a list of the shells which are allowed if you do not have an /etc/shells file.
+
+# cat /etc/shells
+/bin/sh
+/bin/ksh
+/usr/bin/ksh
+/sbin/sh 
+/usr/bin/sh
+/bin/bash
+/usr/bin/bash
+/bin/tcsh
+/usr/bin/tcsh
+/usr/bin/csh
+# chmod 444 /etc/shells
+# chown root:sys /etc/shells
+
+Edit /etc/pam.conf and comment out the entries for r* services.  It's unlikely that these will be started if you've 
+removed them from inetd.conf, but it never hurts to be safe.  If for some reason you're allowing r* services, you 
+probably want to remove the references to pam_rhosts_auth.so.1 to prevent users from leaving their accounts (and
+your machine) open to the outside world.
+
+
+An optional but often good step to take is to move root's home directory.  By default, all of root's files go 
+in /, which is just ugly, and can pose some risk.  If you edit /etc/passwd and change
+
+  root:x:0:1:Super-User:/:/bin/sh
+
+to
+
+  root:x:0:1:Super-User:/root:/bin/sh
+
+and create /root with 700 permissions, you'll have a lot fewer files and directories pile up in your / directory 
+and keep people from poking around root's files.
+
+If you want to share things via NFS, put the share commands in /etc/dfs/dfstab.  Be sure to set sane permissions 
+on the shares.  See below for more cautionary advice about using NFS.  If you are using NFS, you may want to 
+add the following line to /etc/system as well: 
+
+     set nfssrv:nfs_portmon = 1
+
+This will provide some added protection since it will require NFS clients to connect from privileged ports.  If all 
+of your authorized clients are UNIX boxen or otherwise implement privileged ports and they are reasonably secure, 
+this will help stop people from making unauthorized connections to the NFS server.  On the Internet at large, this 
+offers no protection (but I'm sure you'd never allow NFS connections from the Internet at large, right?)
+
+
+=================================================
+
+syslogd:
+
+If this is a Solaris 8 system and this system is not reciving syslog messages from a client
+disable syslog from listening on udp port 514
+
+
+edit /etc/rc2.d/S74syslog and change 
+
+                /usr/sbin/syslogd >/dev/msglog 2>&1 &
+
+       to 
+
+                /usr/sbin/syslogd -t >/dev/msglog 2>&1 &
+
+[...]
+
+     -t    Disable the syslogd UPD port to turn  off  logging  of
+           remote messages.
+
+[...]
+
+=================================================

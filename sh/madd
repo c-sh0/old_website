@@ -1,0 +1,265 @@
+#!/bin/ksh
+#
+#    Madd ( Multiple User Add ) Solaris ( useradd ) 
+#  _______________________________________________________
+#
+#   Add Multiple Users at From a Text File.
+#   
+#    This Script Add Users from a flat text file
+# and then mail each user added with account information
+# an example text file is in the form of...
+#
+#     Firstname:lastname:username:email@addr.com 
+#  ex:
+#      Joe:Shmoe:jsmoe:jsmoe@mycompany.com
+#      Guy:Brown:gbrown:guyb@somewhere.com
+#      [...]
+#
+#    When the Acount is Created For Each user The user
+#  is Forced to change The password when they first Login. This is Accomplished 
+#  By setting the /etc/shadow passwd age Hash to 0. The /etc/shadow file
+#  is Copied to a Directory specified in the Configuration options and
+#  then Copied back to /etc/shadow. The Backup is never removed and is chmod'd
+#  000 for security sake. 
+#
+#   You will need to modify the User Configuration Options Below to
+#  Suit Your Particular Enviornment.
+#
+#    The One Time Default Password is set by the Variable ( DFPASS )
+#  Below. To get the encryped Hash for the $DFPASS you will need to 
+#  Do this on your own. and set the Variable $EDFPASS Below. 
+# 
+#    This has been written for Solirs. 
+#
+#       Usage:  ./madd < userinfofile >
+# 
+#    -- NoCoNFLiC 
+#
+
+
+
+######################################## 
+#
+#  Configuration Options 
+#
+
+# Location of cp and chmod 
+CHMOD=/usr/bin/chmod
+COPY=/usr/bin/cp
+
+# Location of cat
+CAT=/usr/bin/cat
+
+# Mode for Backup file
+MODE=000
+
+# Users Group
+GRP=staff
+
+# Location Of useradd command
+ADDCMD=/usr/sbin/useradd
+
+# Users Home Directory
+HOMEDIR=/export/home
+
+# How many Days Allowed Between Logins Until Account 
+# Is Declaried Invalid
+DAYS=30
+
+# Location of skel files
+SKELDIR=/etc/skel
+
+# Users Shell
+DFSHELL=/usr/local/bin/tcsh
+
+# User to send Log File to
+MAILTO=root
+
+# Return Mail Address
+RETERN=root@whereever.com
+
+# Log File Name
+LOGF=madd.log
+
+# Location of mail Program
+MAILR=/usr/bin/mailx
+
+# Shadow file
+SHADOWF=/etc/shadow
+
+# Back-up Shadow File Name & Location
+SHADOWT=/adm/Usermait/shadow.bak
+
+# One Time Password mailed to User.
+DFPASS=Ch@nG31T
+
+# Encryped Hash of One Time Password
+EDFPASS=HHYw/Z1ptuubc
+
+# Hostname & IP
+# Of Localhost
+HOST=hostname
+IP1=192.168.1.1
+
+# Date
+DATE=`/usr/bin/date`
+ 
+# Check to make sure ROOT Runs this Script
+ID=`/usr/xpg4/bin/id -u`
+
+#
+#########################################
+
+
+#################################################
+#
+#   You Shouldn't Have to Change anything Below
+# Unless You want to Port this to another O/S ;-)
+#
+#################################################
+
+if [ $# -ne 1 ]; then
+        
+echo "Usage: $0 < usr-filename > " 
+
+ exit 1
+fi
+
+if [ ${ID} -ne 0 ]; then
+
+echo "Error: You Must Be Root!"
+
+ exit 1
+fi
+
+echo
+echo "-------------------------"
+echo
+echo " Mass Add v.0.1"
+echo " -- NoCoNFLiC 01/08/01"
+echo
+echo "-------------------------"
+
+sleep 2
+
+function mailinfo {
+
+cat << EOF
+
+${FIRST} ${LAST},
+
+ Your Shell Account has been created. When You first login you will be forced 
+to change your password. Please Login ASAP. 
+
+Server: ${HOST} 
+IP: ${IP1}
+Username: ${UNAME}
+Temp Pass: ${DFPASS} 
+
+ If you have any questions or problems contact:
+
+E: ${RETERN} 
+ 
+Thank You.
+Unix Admin
+EOF
+}
+
+X=0
+UFILE=${1}
+NUM=`wc -l ${UFILE} | awk '{print $1}'`
+
+echo
+echo "Verifying That Usernames Are Not Already In Use..."
+echo
+sleep 1
+
+while [ ${X} -ne ${NUM} ]
+ do
+
+UNAME=`cut -d: -f3 ${UFILE} | awk 'NR == '${NUM}'`
+
+if [ "`grep ${UNAME} ${SHADOWF} | cut -d: -f1`" = "${UNAME}" ]; then      
+        echo 
+        echo "Username ${UNAME} already in use.  Choose another"
+        echo "ERROR: Cannot Continue!"
+        echo
+        exit 1 
+fi
+
+if [ -d ${HOMEDIR}/${UNAME} ]; then
+        echo 
+        echo "Directory ${HOMEDIR}/${UNAME} already exists." 
+        echo "You Will Have To Remove This Directory First Before Adding The User: ${UNAME}."
+        echo "ERROR: Cannot Continue!"
+        echo
+       exit 1
+fi   
+
+echo "${UNAME} ( OK )"
+sleep 1
+
+    NUM=$(( ${NUM} -1 ))
+done
+
+echo
+echo "All Checks Passed!"
+echo "Adding Users...."
+echo
+sleep 2
+
+if [ -f ${SHADOWT} ]; then
+
+      ${CHMOD} 777 ${SHADOWT}
+fi
+ 
+NUM=`wc -l ${UFILE} | awk '{print $1}'`
+
+${COPY} ${SHADOWF} ${SHADOWT}
+${CHMOD} 777 ${SHADOWT}
+
+
+while [ ${X} -ne ${NUM} ]
+ do
+
+FIRST=`cut -d: -f1 ${UFILE} | awk 'NR == '${NUM}'`
+LAST=`cut -d: -f2 ${UFILE} | awk 'NR == '${NUM}'`
+UNAME=`cut -d: -f3 ${UFILE} | awk 'NR == '${NUM}'`
+UEMAIL=`cut -d: -f4 ${UFILE} | awk 'NR == '${NUM}'`
+
+${ADDCMD} -d ${HOMEDIR}/${UNAME}  -g ${GRP} -m -k ${SKELDIR} -f ${DAYS} -s ${DFSHELL} -c "${FIRST} ${LAST}" ${UNAME}  
+
+ echo "${UNAME}:${EDFPASS}:0::::${DAYS}::" >> ${SHADOWT} 
+ echo "${UNAME}: Added.." 
+ echo ${UNAME}: Added. to ${HOST} on ${DATE} >> ${LOGF}
+
+mailinfo | ${MAILR} -s "Your Shell Account Information" -r ${RETERN} ${UEMAIL}
+
+sleep 1
+ 
+     NUM=$(( ${NUM} -1 ))
+
+done
+
+
+echo
+echo " Cleaning Up...."
+
+${COPY} ${SHADOWT} ${SHADOWF}
+${CHMOD} ${MODE} ${SHADOWT}
+ls -al ${SHADOWT} >> ${LOGF}
+${CAT} ${LOGF} | ${MAILR} -s "Mass User Add Logfile" ${MAILTO}
+sleep 1
+rm ${LOGF}
+
+sleep 2
+
+${CHMOD} ${MODE} ${SHADOWT}
+
+echo
+echo "Done."
+echo 
+echo "Mail has been sent to all users with account information."
+echo " ${LOGF} Output Mailed to ${MAILTO}"
+echo "~Fin~"
+echo

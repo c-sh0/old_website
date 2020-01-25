@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# /usr/lib/newsyslog - rotate log files (local host)
+#
+
+LOGDIR=/var/adm
+if test -d $LOGDIR
+then
+cd $LOGDIR
+    for LOG in messages authlog daemon.log local7.log local2.log maillog; do       
+           test -f $LOG.2.gz && mv $LOG.2.gz $LOG.3.gz 
+           test -f $LOG.1.gz && mv $LOG.1.gz $LOG.2.gz 
+           test -f $LOG.0.gz && mv $LOG.0.gz $LOG.1.gz
+           test -f $LOG && mv $LOG $LOG.0 && /usr/local/bin/gzip $LOG.0
+               cp /dev/null $LOG
+               chmod 640 $LOG
+                            
+      done
+  fi
+
+
+kill -HUP `cat  /etc/syslog.pid` 
+
+# end of file /usr/lib/newsyslog

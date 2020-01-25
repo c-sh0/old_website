@@ -1,0 +1,27 @@
+#!/bin/ksh
+#
+# Quick Script to Spit out User aliases
+# good if you have over 100 users and you need to 
+# create a quick aliases file.
+#
+# - NoCoNFLiC
+
+cut -d: -f1 /etc/passwd >> ./users
+USERFILE=./users
+USERS=`wc -l ${USERFILE} | awk '{ print $1 }'`
+HOSTN=`hostname`
+
+X=0
+X2=1
+
+while [ ${X} -lt ${USERS} ]
+ do
+
+        USER=`awk 'NR=='${X2}' {print $1}' ${USERFILE}`
+echo "${USER}: ${USER}@${HOSTN}"
+
+     sleep 1
+     X2=$(( $X2 +1 ))
+X=$(( $X +1 ))
+done
+rm -rf ${USERFILE}

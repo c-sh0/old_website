@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# disable filename globbing
+set -f
+
+echo Content-type: text/html
+echo
+
+LOGF=/tmp/q_string.log
+
+echo "==========================================================" >> ${LOGF}
+echo QUERY_STRING: "${QUERY_STRING}" >> ${LOGF}
+echo REMOTE_HOST: ${REMOTE_HOST} >> ${LOGF}
+echo REMOTE_ADDR: ${REMOTE_ADDR} >> ${LOGF}
+echo REMOTE_USER: ${REMOTE_USER} >> ${LOGF}
+
+echo >> ${LOGF}
+echo "Cookie:" >> ${LOGF}
+echo "$*" >> ${LOGF} 
+echo >> ${LOGF}
+
+echo QUERY_STRING: "${QUERY_STRING}"
+echo
+
+exit 0

